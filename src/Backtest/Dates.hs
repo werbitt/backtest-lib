@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module Rd.Dates
+module Backtest.Dates
        (
          tradingDays
        , rebalanceDays
@@ -9,8 +9,8 @@ module Rd.Dates
 import           Control.Lens                (view, (^.))
 import           Control.Monad.Trans         (lift)
 import           Data.Time                   (Day, fromGregorian, toGregorian)
-import qualified Rd.Query                    as Q
-import           Rd.Types                    (Backtest, Frequency, Ordinal,
+import qualified Backtest.Query                    as Q
+import           Backtest.Types                    (Backtest, Frequency, Ordinal,
                                               Weekday, connection,
                                               historyVersion, ordToInt, ordinal,
                                               params, startDate, wait, weekday,

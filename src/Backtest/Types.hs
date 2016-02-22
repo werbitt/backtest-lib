@@ -7,7 +7,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
-module Rd.Types
+module Backtest.Types
        ( Backtest
        , unBacktest
          -- * Reader Environment

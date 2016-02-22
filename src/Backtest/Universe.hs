@@ -1,14 +1,14 @@
-module Rd.Universe
+module Backtest.Universe
        (
          universe
        ) where
 
+import qualified Backtest.Query      as Q
+import           Backtest.Types      (Backtest, Ticker, connection,
+                                      historyVersion)
 import           Control.Lens        (view)
 import           Control.Monad.Trans (liftIO)
 import           Data.Time           (Day)
-import qualified Rd.Query            as Q
-import           Rd.Types            (Backtest, Ticker, connection,
-                                      historyVersion)
 
 universe :: Day -> Backtest [Ticker]
 universe d = do

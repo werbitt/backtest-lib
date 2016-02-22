@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
-module Rd.Query
+module Backtest.Query
        (
          lastHistoryVersion
        , connection
@@ -12,6 +12,7 @@ module Rd.Query
        , runMembersQuery
        ) where
 
+import           Backtest.Types             (Price, Return, Ticker, mkTicker)
 import           Control.Arrow              (returnA)
 import           Data.Int                   (Int64)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
@@ -27,7 +28,6 @@ import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGInt8,
 import           Opaleye.RunQuery           (QueryRunnerColumnDefault (..),
                                              fieldQueryRunnerColumn, runQuery)
 import           Prelude                    hiding (max)
-import           Rd.Types                   (Price, Return, Ticker, mkTicker)
 
 -- |
 -- = Database Connection

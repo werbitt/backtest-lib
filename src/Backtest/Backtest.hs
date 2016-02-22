@@ -1,16 +1,16 @@
-module Rs.Backtest
+module Backtest.Backtest
        (
        ) where
 
+import           Backtest.Dates       (rebalanceDays, tradingDays)
+import           Backtest.Optimize    (optimize)
+import           Backtest.Portfolio   (fromWeighted, marketValue)
+import           Backtest.Types       (Backtest, Portfolio, frequency, params)
 import           Control.Lens         (view)
 import           Control.Monad.Reader (ask)
 import qualified Data.Set             as S
 import           Data.Time            (Day)
 import           Pipes                (Pipe, Producer, await)
-import           Rd.Dates             (rebalanceDays, tradingDays)
-import           Rd.Optimize          (optimize)
-import           Rd.Portfolio         (fromWeighted, marketValue)
-import           Rd.Types             (Backtest, Portfolio, frequency, params)
 
 
 -- Needs

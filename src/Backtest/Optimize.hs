@@ -1,21 +1,21 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Rd.Optimize
+module Backtest.Optimize
        (
          optimize
        ) where
 
-import           Control.Lens           (view, (^.))
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Reader   (MonadReader)
-import           Data.Time              (Day)
-import           Rd.Types               (Asset, Buffer, Constrain (..),
+import           Backtest.Types         (Asset, Buffer, Constrain (..),
                                          Constraint, Constraints, Env, HasAsset,
                                          PortfolioW, Strategy, Weight, buffer,
                                          cutoff, getAsset, getData, global,
                                          long, mkCash, mkPortfolio, params,
                                          rank, short)
+import           Control.Lens           (view, (^.))
+import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.Reader   (MonadReader)
+import           Data.Time              (Day)
 
 
 optimize :: (MonadIO m, MonadReader Env m, HasAsset a) =>

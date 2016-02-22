@@ -1,11 +1,11 @@
-module Rd.Portfolio
+module Backtest.Portfolio
        (
          fromWeighted
        , marketValue
        ) where
 
-import           Data.Monoid (Sum (..), getSum)
-import           Rd.Types    (Portfolio, PortfolioW, Value)
+import           Backtest.Types (Portfolio, PortfolioW, Value)
+import           Data.Monoid    (Sum (..), getSum)
 
 fromWeighted :: PortfolioW -> Value -> Portfolio
 fromWeighted p mv = toValue <$> p
