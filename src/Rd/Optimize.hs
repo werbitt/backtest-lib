@@ -10,17 +10,18 @@ import           Control.Lens           (view, (^.))
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader   (MonadReader)
 import           Data.Time              (Day)
-import           Rd.Types               (Asset, Buffer, Constraint, Constraints,
-                                         Env, HasAsset, PortfolioW, Strategy,
-                                         Weight, buffer, cutoff, getAsset,
-                                         global, long, mkCash, mkPortfolio,
-                                         params, rank, short)
+import           Rd.Types               (Asset, Buffer, Constrain (..),
+                                         Constraint, Constraints, Env, HasAsset,
+                                         PortfolioW, Strategy, Weight, buffer,
+                                         cutoff, getAsset, getData, global,
+                                         long, mkCash, mkPortfolio, params,
+                                         rank, short)
 
 
 optimize :: (MonadIO m, MonadReader Env m, HasAsset a) =>
-            (Day -> m [a]) -> Strategy a -> Constraints a -> Day -> m PortfolioW
-optimize query strategy constraints d = do
-  allData <- query d
+            Strategy m a -> Constraints a -> Day -> m PortfolioW
+optimize strategy constraints d = do
+  allData <- (strategy ^. getData) d
   let filtered = runConstraints (constraints ^. global) allData
   let ranked = rankBy strategy filtered
   longs <- takeCut $ runConstraints (constraints ^. long) ranked
@@ -31,11 +32,11 @@ optimize query strategy constraints d = do
 
 runConstraints :: [Constraint a] -> [a] -> [a]
 runConstraints _           []     = []
-runConstraints constraints (x:xs) = if and (constraints <*> pure x)
+runConstraints constraints (x:xs) = if all (== Include) (constraints <*> pure x)
                                     then x : runConstraints constraints xs
                                     else runConstraints constraints xs
 
-rankBy :: Strategy a -> [a] -> [a]
+rankBy :: Strategy m a -> [a] -> [a]
 rankBy strategy = strategy ^. rank
 
 takeCut :: (MonadReader Env  m) => [a] -> m [a]
@@ -49,7 +50,7 @@ mkWeights b longs shorts = (mkCash, 1) : longs' ++ shorts'
   where
     lWgt = equalWeight b (length longs)
     longs' = map (\x -> (getAsset x, lWgt)) longs
-    sWgt = equalWeight b (length shorts)
+    sWgt = negate $ equalWeight b (length shorts)
     shorts' = map (\x -> (getAsset x, sWgt)) shorts
 
 equalWeight :: Fractional a => Buffer -> Int -> a

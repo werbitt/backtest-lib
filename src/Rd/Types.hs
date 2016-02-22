@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFoldable             #-}
 {-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -28,8 +29,10 @@ module Rd.Types
        , Asset
        , mkCash
        , mkEquity
+       , unTicker
        , Ticker
        , mkTicker
+       , getTicker
        , Value
        , Price
        , Return
@@ -43,6 +46,7 @@ module Rd.Types
          -- * Strategy
        , Strategy
        , mkStrategy
+       , getData
        , rank
          -- * Constraints
        , Constraints
@@ -51,6 +55,7 @@ module Rd.Types
        , short
        , Constraint
        , mkConstraints
+       , Constrain (..)
          -- * Rebalance Frequency
        , Frequency
        , mkFrequency
@@ -116,6 +121,9 @@ deriving instance QueryRunnerColumnDefault PGText Ticker
 mkTicker :: String -> Ticker
 mkTicker = Ticker
 
+unTicker :: Ticker -> String
+unTicker (Ticker s) = s
+
 data Asset = Cash | Equity Ticker deriving (Show, Eq, Ord)
 
 mkCash :: Asset
@@ -123,6 +131,10 @@ mkCash = Cash
 
 mkEquity :: Ticker -> Asset
 mkEquity = Equity
+
+getTicker :: Asset -> Maybe Ticker
+getTicker (Equity t) = Just t
+getTicker _          = Nothing
 
 
 type Price = Double
@@ -147,14 +159,19 @@ mkPortfolio = PortfolioF . M.fromList
 ------------------------------------------------------------------------
 -- | Stragegies
 ------------------------------------------------------------------------
-data Strategy a = Strategy { _rank :: [a] -> [a]  }
+data Strategy m a = Strategy
+                  { _getData :: Day -> m [a]
+                  , _rank    :: [a] -> [a]  }
 
-mkStrategy :: ([a] -> [a]) -> Strategy a
+mkStrategy ::
+  (MonadReader Env m, MonadIO m) =>
+  (Day -> m [a]) -> ([a] -> [a]) -> Strategy m a
 mkStrategy = Strategy
+
 ------------------------------------------------------------------------
 -- | Constraints
 ------------------------------------------------------------------------
-type Constraint a = a -> Bool
+type Constraint a = a -> Constrain
 
 data Constraints a = Constraints { _global :: [Constraint a]
                                  , _short  :: [Constraint a]
@@ -162,6 +179,8 @@ data Constraints a = Constraints { _global :: [Constraint a]
 
 mkConstraints :: [Constraint a] -> [Constraint a] -> [Constraint a] -> Constraints a
 mkConstraints = Constraints
+
+data Constrain = Include | Exclude deriving (Eq)
 ------------------------------------------------------------------------
 -- | Dates
 ------------------------------------------------------------------------
