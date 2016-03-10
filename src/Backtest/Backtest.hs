@@ -1,16 +1,24 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Backtest.Backtest
        (
        ) where
 
-import           Backtest.Dates       (rebalanceDays, tradingDays)
-import           Backtest.Optimize    (optimize)
-import           Backtest.Portfolio   (fromWeighted, marketValue)
-import           Backtest.Types       (Backtest, Portfolio, frequency, params)
-import           Control.Lens         (view)
-import           Control.Monad.Reader (ask)
-import qualified Data.Set             as S
-import           Data.Time            (Day)
-import           Pipes                (Pipe, Producer, await)
+import           Backtest.Dates         (rebalanceDays, tradingDays)
+import           Backtest.Optimize      (optimize)
+import           Backtest.Portfolio     (fromWeighted, marketValue)
+import           Backtest.Types         (Backtest, Constraints, HasAsset,
+                                         HasBacktestConfig, HasDbConfig,
+                                         Portfolio, Strategy, frequency,
+                                         startValue)
+import           Control.Lens           (view)
+import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.Reader   (MonadReader, ask)
+import           Control.Monad.Trans    (lift)
+import qualified Data.Set               as S
+import           Data.Time              (Day)
+import           Pipes                  (Pipe, Producer, await, yield)
 
 
 -- Needs
