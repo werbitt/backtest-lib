@@ -16,7 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Lib
-                     , Rd.Types
+                     , Backtest.Types
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5.6.2
                      , lens
