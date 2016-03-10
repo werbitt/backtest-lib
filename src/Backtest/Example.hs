@@ -9,16 +9,30 @@ import           Control.Monad.Trans    (liftIO)
 import           Data.Char              (toLower)
 import           Data.List              (sortBy)
 import           Data.Time              (Day, fromGregorian)
-import           Rd.Optimize            (optimize)
-import qualified Rd.Query               as Q
-import           Rd.Types               (Asset, Backtest, Constrain (..),
-                                         Constraints, Env, HasAsset,
+import           Backtest.Optimize            (optimize)
+import qualified Backtest.Query               as Q
+import           Backtest.Types               (Asset, Backtest, Constrain (..),
+                                         Constraints, HasAsset,
                                          Ordinal (..), Params, PortfolioW,
                                          Strategy, Wait, Weekday (..),
                                          connection, getAsset, getTicker,
-                                         historyVersion, mkConstraints, mkEnv,
+                                         historyVersion, mkConstraints,
                                          mkEquity, mkParams, mkStrategy,
                                          unBacktest, unTicker, mkFrequency)
+
+dbConfig = DbConfig { _connection = Q.connection }
+backtestConfig = BacktestConfig { _startDate = fromGregorian 2006 1 1
+                                , _startValue = 1000000
+                                , _frequency = mkFrequency Second Friday 2
+                                , _cutoff = 0.05
+                                , _buffer = 0.10 }
+strategyConfig = StrategyConfig { _strategy = alpha
+                                , _constraints = mkConstraints
+                                  [constraintNoSecondB]
+                                  [constraintNoZ]
+                                  [] }
+
+
 
 alpha :: (MonadIO m, MonadReader Env m) => Strategy m Asset
 alpha = mkStrategy query $ sortBy (\_ _ -> EQ)
@@ -49,7 +63,7 @@ constraintNoZ x = check $ getAsset x
 
 
 constraints :: (HasAsset a) => Constraints a
-constraints = mkConstraints [constraintNoSecondB] [constraintNoZ] []
+constraints =
 
 d :: Day
 d = fromGregorian 2016 1 26
