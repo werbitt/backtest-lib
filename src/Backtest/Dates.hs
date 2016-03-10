@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Backtest.Dates
        (
@@ -6,27 +7,27 @@ module Backtest.Dates
        , rebalanceDays
        ) where
 
+import qualified Backtest.Query              as Q
+import           Backtest.Types              (Frequency, HasBacktestConfig,
+                                              HasDbConfig, Ordinal, Weekday,
+                                              connection, historyVersion,
+                                              ordToInt, ordinal, startDate,
+                                              wait, weekday, weekdayToInt)
 import           Control.Lens                (view, (^.))
-import           Control.Monad.Trans         (lift)
-import           Data.Time                   (Day, fromGregorian, toGregorian)
-import qualified Backtest.Query                    as Q
-import           Backtest.Types                    (Backtest, Frequency, Ordinal,
-                                              Weekday, connection,
-                                              historyVersion, ordToInt, ordinal,
-                                              params, startDate, wait, weekday,
-                                              weekdayToInt, Env)
-import Control.Monad.Reader (MonadReader)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.IO.Class      (MonadIO, liftIO)
+import           Control.Monad.Reader        (MonadReader)
 import           Data.List                   (groupBy)
 import           Data.Maybe                  (listToMaybe, mapMaybe)
 import           Data.Set                    (Set, fromList)
+import           Data.Time                   (Day, fromGregorian, toGregorian)
 import           Data.Time.Calendar.WeekDate (toWeekDate)
 
-tradingDays :: (MonadIO m, MonadReader Env m) => m [Day]
+tradingDays :: (MonadIO m, MonadReader r m, HasBacktestConfig r, HasDbConfig r)
+               => m [Day]
 tradingDays = do
   conn <- view connection
   v    <- view historyVersion
-  sd   <- view  (params . startDate)
+  sd   <- view startDate
   liftIO $ Q.tradingDays conn v sd
 
 rebalanceDays :: Frequency -> [Day] -> Set Day
