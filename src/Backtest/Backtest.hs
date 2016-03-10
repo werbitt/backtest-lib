@@ -29,25 +29,47 @@ import           Pipes                  (Pipe, Producer, await, yield)
 --   - High/Low Cutoff
 --   - Cash Buffer
 
-backtest' =  do
+backtest'
+  :: ( MonadIO m
+     , MonadReader r m
+     , HasDbConfig r
+     , HasBacktestConfig r
+     , HasAsset a
+     )
+     => Strategy m a
+     -> Constraints a
+     ->  m b
+backtest' strat cs =  do
   (d:ds) <- tradingDays
-  freq   <- view (params . frequency)
+  freq   <- view frequency
   let rds = rebalanceDays freq ds
-  op <- optimize d
+  op <- optimize strat cs d
+  mv <- view startValue
+  let p = fromWeighted op mv
   return undefined
 
 
 
-backtest :: Pipe (Day, Portfolio) (Day, Portfolio) Backtest ()
+backtest
+  :: ( MonadIO m
+     , MonadReader r m
+     , HasDbConfig r
+     , HasBacktestConfig r
+     , HasAsset a
+     )
+     => Pipe (Strategy m a, Constraints a, [Day], S.Set Day,  Day, Portfolio) (Day, Portfolio) m ()
 backtest = do
-  (d', p') <- await
-  return undefined
+  (strat, cts, d:ds, rebalDays,  d', p') <- await
+  p'' <- lift $ rebalance strat cts d rebalDays p'
+  yield (d, p'')
 
-rebalance :: Day -> S.Set Day -> Portfolio -> Backtest Portfolio
-rebalance d ds p = if S.member d ds
-                   then do
-                        opt <- optimize d
-                        let mv = marketValue p
-                        return $ fromWeighted opt mv
-                   else
-                     return p
+rebalance :: (MonadIO m, MonadReader r m, HasAsset a, HasBacktestConfig r, HasDbConfig r)
+  =>  Strategy m a -> Constraints a -> Day -> S.Set Day -> Portfolio
+  -> m Portfolio
+rebalance strat cts d ds p = if S.member d ds
+                             then do
+                               opt <- optimize strat cts d
+                               let mv = marketValue p
+                               return $ fromWeighted opt mv
+                             else
+                               return p
