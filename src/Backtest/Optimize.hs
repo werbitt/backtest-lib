@@ -7,18 +7,19 @@ module Backtest.Optimize
        ) where
 
 import           Backtest.Types         (Asset, Buffer, Constrain (..),
-                                         Constraint, Constraints, Env, HasAsset,
-                                         PortfolioW, Strategy, Weight, buffer,
-                                         cutoff, getAsset, getData, global,
-                                         long, mkCash, mkPortfolio, params,
-                                         rank, short)
+                                         Constraint, Constraints, HasAsset,
+                                         HasBacktestConfig, HasDbConfig,
+                                         PortfolioW, Strategy, Weight,
+                                         backtestConfig, buffer, cutoff,
+                                         getAsset, getData, global, long,
+                                         mkCash, mkPortfolio, rank, short)
 import           Control.Lens           (view, (^.))
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader   (MonadReader)
 import           Data.Time              (Day)
 
 
-optimize :: (MonadIO m, MonadReader Env m, HasAsset a) =>
+optimize :: (MonadIO m, MonadReader r m, HasAsset a, HasBacktestConfig r, HasDbConfig r) =>
             Strategy m a -> Constraints a -> Day -> m PortfolioW
 optimize strategy constraints d = do
   allData <- (strategy ^. getData) d
@@ -26,7 +27,7 @@ optimize strategy constraints d = do
   let ranked = rankBy strategy filtered
   longs <- takeCut $ runConstraints (constraints ^. long) ranked
   shorts <- takeCut . reverse $ runConstraints (constraints ^. short) ranked
-  buf <- view (params . buffer)
+  buf <- view (backtestConfig . buffer)
   let weights = mkWeights buf longs shorts
   return (mkPortfolio weights)
 
@@ -39,9 +40,9 @@ runConstraints constraints (x:xs) = if all (== Include) (constraints <*> pure x)
 rankBy :: Strategy m a -> [a] -> [a]
 rankBy strategy = strategy ^. rank
 
-takeCut :: (MonadReader Env  m) => [a] -> m [a]
+takeCut :: (MonadReader r  m, HasBacktestConfig r) => [a] -> m [a]
 takeCut xs = do
-  cut <- view (params . cutoff)
+  cut <- view (backtestConfig . cutoff)
   let n = floor $ cut * fromIntegral (length xs)
   return $ take n xs
 
