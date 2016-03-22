@@ -1,43 +1,33 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Backtest.Example where
 
-import           Control.Lens           (view)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Reader   (MonadReader, runReaderT)
-import           Control.Monad.Trans    (liftIO)
-import           Data.Char              (toLower)
-import           Data.List              (sortBy)
-import           Data.Time              (Day, fromGregorian)
-import           Backtest.Optimize            (optimize)
-import qualified Backtest.Query               as Q
-import           Backtest.Types               (Asset, Backtest, Constrain (..),
-                                         Constraints, HasAsset,
-                                         Ordinal (..), Params, PortfolioW,
-                                         Strategy, Wait, Weekday (..),
-                                         connection, getAsset, getTicker,
-                                         historyVersion, mkConstraints,
-                                         mkEquity, mkParams, mkStrategy,
-                                         unBacktest, unTicker, mkFrequency)
+import qualified Backtest.Backtest    as B
+import           Backtest.Optimize    (optimize)
+import qualified Backtest.Query       as Q
+import           Backtest.Types       (AppConfig (..), Asset, Backtest,
+                                       BacktestConfig (..), CanDb,
+                                       Constrain (..), Constraint,
+                                       Constraints (..), DbConfig (..),
+                                       HasAsset, HasBacktestConfig,
+                                       Ordinal (..), PortfolioW, Strategy (..),
+                                       Weekday (..), connection, getAsset,
+                                       getTicker, historyVersion, mkConstraints,
+                                       mkEquity, mkFrequency, unBacktest,
+                                       unTicker)
+import           Control.Lens         (view)
+import           Control.Monad.Logger (runStdoutLoggingT)
+import           Control.Monad.Reader (runReaderT)
+import           Control.Monad.Trans  (liftIO)
+import           Data.Char            (toLower)
+import           Data.List            (sortBy)
+import           Data.Time            (Day, fromGregorian)
 
-dbConfig = DbConfig { _connection = Q.connection }
-backtestConfig = BacktestConfig { _startDate = fromGregorian 2006 1 1
-                                , _startValue = 1000000
-                                , _frequency = mkFrequency Second Friday 2
-                                , _cutoff = 0.05
-                                , _buffer = 0.10 }
-strategyConfig = StrategyConfig { _strategy = alpha
-                                , _constraints = mkConstraints
-                                  [constraintNoSecondB]
-                                  [constraintNoZ]
-                                  [] }
+alpha :: CanDb r m => Strategy m Asset
+alpha = Strategy query $ sortBy (\_ _ -> EQ)
 
-
-
-alpha :: (MonadIO m, MonadReader Env m) => Strategy m Asset
-alpha = mkStrategy query $ sortBy (\_ _ -> EQ)
-
-query :: (MonadIO m,  MonadReader Env m) => Day -> m [Asset]
+query :: CanDb r m => Day -> m [Asset]
 query d' = do
   conn <- view connection
   v <- view historyVersion
@@ -45,37 +35,40 @@ query d' = do
   return $ map mkEquity ts
 
 
-constraintNoSecondB :: HasAsset a => a -> Constrain
+constraintNoSecondB :: HasAsset a => Constraint a
 constraintNoSecondB x = check $ getAsset x
   where
     check a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
     hasB (_:'b':_) = Exclude
     hasB _ = Include
 
-constraintNoZ :: HasAsset a => a -> Constrain
+constraintNoZ :: HasAsset a => Constraint a
 constraintNoZ x = check $ getAsset x
   where
     check a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
     hasB ('z':_) = Exclude
     hasB _ = Include
 
-
-
-
 constraints :: (HasAsset a) => Constraints a
-constraints =
+constraints = mkConstraints [constraintNoSecondB][constraintNoZ][]
 
 d :: Day
 d = fromGregorian 2016 1 26
 
-optimize' :: (MonadIO m, MonadReader Env m) => m PortfolioW
+optimize' :: (CanDb r m, HasBacktestConfig r)=> m PortfolioW
 optimize' = optimize alpha constraints d
 
-run :: Backtest a -> IO a
-run m = do
-  let sd = fromGregorian 2006 1 1
-  let f = mkFrequency Second Friday 2
-  let p = mkParams sd 1000000 f 0.05 0.1
+run' :: Backtest a -> IO a
+run' m = do
   conn <- Q.connection
   version <- Q.lastHistoryVersion conn
-  runReaderT (unBacktest m) (mkEnv conn version p)
+  let config =
+        AppConfig { appDbConfig = DbConfig { _connection = conn
+                                           , _historyVersion = version }
+                  , appBacktestConfig = BacktestConfig { _startDate = fromGregorian 2006 1 1
+                                                       , _startValue = 1000000
+                                                       , _frequency = mkFrequency Second Friday 2
+                                                       , _cutoff = 0.05
+                                                       , _buffer = 0.10 }}
+
+  runStdoutLoggingT $ runReaderT (unBacktest m) config
