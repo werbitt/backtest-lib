@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveFoldable             #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -16,8 +17,10 @@ module Backtest.Types
        , BacktestConfig (..)
        , backtestConfig
        , HasBacktestConfig
+       , DbConfig (..)
        , dbConfig
        , HasDbConfig
+       , CanDb
          -- * Reader Environment
 --       , Env
 --       , mkEnv
@@ -37,9 +40,9 @@ module Backtest.Types
        , Asset
        , mkCash
        , mkEquity
-       , unTicker
        , Ticker
        , mkTicker
+       , unTicker
        , getTicker
        , Value
        , Price
@@ -50,13 +53,14 @@ module Backtest.Types
        , Portfolio
        , mkPortfolio
        , PortfolioW
+       , PortfolioF(..)
        , Weight
          -- * Strategy
-       , Strategy
+       , Strategy (..)
        , getData
        , rank
          -- * Constraints
-       , Constraints
+       , Constraints (..)
        , global
        , long
        , short
@@ -75,16 +79,20 @@ module Backtest.Types
        , ordToInt
        , weekdayToInt) where
 
-import           Control.Lens.TH            (makeClassy, makeLenses)
-import           Control.Monad.IO.Class     (MonadIO)
-import           Control.Monad.Reader       (MonadReader, ReaderT)
-import           Data.Map                   (Map)
-import qualified Data.Map                   as M
-import           Data.Time                  (Day)
-import           Database.PostgreSQL.Simple (Connection)
-import           Opaleye.PGTypes            (PGText)
-import           Opaleye.RunQuery           (QueryRunnerColumnDefault)
-
+import           Control.Lens                    (lens)
+import           Control.Lens.TH                 (makeClassy, makeLenses)
+import           Control.Monad.IO.Class          (MonadIO)
+import           Control.Monad.Logger            (LoggingT)
+import           Control.Monad.Reader            (MonadReader, ReaderT)
+import           Data.Map                        (Map)
+import qualified Data.Map                        as M
+import           Data.Profunctor.Product.Default (Default, def)
+import           Data.Time                       (Day)
+import           Database.PostgreSQL.Simple      (Connection)
+import           Opaleye.Column                  (Column)
+import           Opaleye.Constant                (Constant (..))
+import           Opaleye.PGTypes                 (PGText, pgString)
+import           Opaleye.RunQuery                (QueryRunnerColumnDefault)
 
 ------------------------------------------------------------------------
 -- | Dates
@@ -132,16 +140,23 @@ mkFrequency = Monthly
 ------------------------------------------------------------------------
 -- | Assets
 ------------------------------------------------------------------------
-newtype Ticker = Ticker String deriving (Show, Eq, Ord)
+
+newtype Ticker = Ticker {unTicker :: String } deriving (Show, Eq, Ord)
 deriving instance QueryRunnerColumnDefault PGText Ticker
+
+instance Default Constant Ticker (Column PGText) where
+  def = Constant $ pgString . unTicker
 
 mkTicker :: String -> Ticker
 mkTicker = Ticker
 
-unTicker :: Ticker -> String
-unTicker (Ticker s) = s
+-- unTicker :: Ticker -> String
+-- unTicker (Ticker s) = s
 
 data Asset = Cash | Equity Ticker deriving (Show, Eq, Ord)
+
+instance Default Constant Asset (Column PGText) where
+  def = Constant $ pgString . assetToString
 
 mkCash :: Asset
 mkCash = Cash
@@ -152,6 +167,14 @@ mkEquity = Equity
 getTicker :: Asset -> Maybe Ticker
 getTicker (Equity t) = Just t
 getTicker _          = Nothing
+
+assetFromString :: String -> Asset
+assetFromString "Cash" = Cash
+assetFromString s      = mkEquity (mkTicker s)
+
+assetToString :: Asset -> String
+assetToString Cash       = "Cash"
+assetToString (Equity t) = unTicker t
 
 
 type Price = Double
@@ -173,6 +196,11 @@ type Weight = Double
 data PortfolioF a = PortfolioF (Map Asset a) deriving (Functor, Foldable, Show)
 type Portfolio = PortfolioF Value
 type PortfolioW = PortfolioF Weight
+
+instance (Num a, Eq a) => Monoid (PortfolioF a) where
+  mempty  = mkPortfolio []
+  mappend (PortfolioF m1) (PortfolioF m2) = PortfolioF $
+    M.filter (/= 0) (M.unionWith (+) m1 m2)
 
 mkPortfolio :: (Num a, Eq a) => [(Asset, a)] -> PortfolioF a
 mkPortfolio = PortfolioF . M.fromList
@@ -222,21 +250,22 @@ data BacktestConfig = BacktestConfig { _startDate  :: Day
 
 makeClassy ''BacktestConfig
 
-data StrategyConfig m a = StrategyConfig { _strategy    :: Strategy m a
-                                         , _constraints :: Constraints a }
-
-
 data AppConfig  = AppConfig { appDbConfig       :: DbConfig
                             , appBacktestConfig :: BacktestConfig }
 makeClassy ''AppConfig
 
+instance HasDbConfig AppConfig where
+  dbConfig = lens appDbConfig (\app db -> app { appDbConfig = db })
 
+instance HasBacktestConfig AppConfig where
+  backtestConfig = lens appBacktestConfig (\a b -> a { appBacktestConfig = b })
 
+type CanDb r m = ( MonadReader r m, HasDbConfig r, MonadIO m )
 
 ------------------------------------------------------------------------
 -- | Application Monad Stack
 ------------------------------------------------------------------------
-newtype Backtest a = Backtest { unBacktest :: ReaderT AppConfig IO a } deriving
+newtype Backtest a = Backtest { unBacktest :: ReaderT AppConfig (LoggingT IO) a } deriving
                      (
                        Functor
                      , Applicative
