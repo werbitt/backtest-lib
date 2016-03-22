@@ -6,20 +6,18 @@ module Backtest.Optimize
          optimize
        ) where
 
-import           Backtest.Types         (Asset, Buffer, Constrain (..),
-                                         Constraint, Constraints, HasAsset,
-                                         HasBacktestConfig, HasDbConfig,
-                                         PortfolioW, Strategy, Weight,
-                                         backtestConfig, buffer, cutoff,
-                                         getAsset, getData, global, long,
-                                         mkCash, mkPortfolio, rank, short)
-import           Control.Lens           (view, (^.))
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Reader   (MonadReader)
-import           Data.Time              (Day)
+import           Backtest.Types       (Asset, Buffer, CanDb, Constrain (..),
+                                       Constraint, Constraints, HasAsset,
+                                       HasBacktestConfig, PortfolioW, Strategy,
+                                       Weight, backtestConfig, buffer, cutoff,
+                                       getAsset, getData, global, long, mkCash,
+                                       mkPortfolio, rank, short)
+import           Control.Lens         (view, (^.))
+import           Control.Monad.Reader (MonadReader)
+import           Data.Time            (Day)
 
 
-optimize :: (MonadIO m, MonadReader r m, HasAsset a, HasBacktestConfig r, HasDbConfig r) =>
+optimize :: (CanDb r m, HasAsset a, HasBacktestConfig r) =>
             Strategy m a -> Constraints a -> Day -> m PortfolioW
 optimize strategy constraints d = do
   allData <- (strategy ^. getData) d
