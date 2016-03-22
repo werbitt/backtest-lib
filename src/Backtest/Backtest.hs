@@ -3,73 +3,108 @@
 
 module Backtest.Backtest
        (
+         run
        ) where
 
 import           Backtest.Dates         (rebalanceDays, tradingDays)
 import           Backtest.Optimize      (optimize)
-import           Backtest.Portfolio     (fromWeighted, marketValue)
-import           Backtest.Types         (Backtest, Constraints, HasAsset,
-                                         HasBacktestConfig, HasDbConfig,
-                                         Portfolio, Strategy, frequency,
+import           Backtest.Portfolio     (empty, flow, fromWeighted,
+                                         getAndApplyReturns, marketValue,
+                                         toList)
+import           Backtest.Query         (BacktestMetaId, saveBacktestMeta,
+                                         saveHoldings)
+import           Backtest.Types         (CanDb, Constraints, HasAsset,
+                                         HasBacktestConfig, Portfolio, Strategy,
+                                         backtestConfig, connection, frequency,
+                                         historyVersion, startDate, startValue,
                                          startValue)
-import           Control.Lens           (view)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Reader   (MonadReader, ask)
+import           Control.Lens           (view, (^.))
+import           Control.Monad          (forever)
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans    (lift)
 import qualified Data.Set               as S
 import           Data.Time              (Day)
-import           Pipes                  (Pipe, Producer, await, yield)
+import           Pipes                  (Consumer, Producer, await, runEffect,
+                                         yield, (>->))
 
 
--- Needs
--- - Start Day
--- - Start Value
--- - Optimization Parameters
---   - Rebalance Frequency
---   - High/Low Cutoff
---   - Cash Buffer
+run
+  :: (CanDb r m, HasAsset a, HasBacktestConfig r) =>
+     Strategy m a -> Constraints a -> m ()
+run strat cts  = do
+  bId <- saveBacktestMeta'
+  runEffect $ start strat cts >-> save bId
 
-backtest'
-  :: ( MonadIO m
-     , MonadReader r m
-     , HasDbConfig r
+start
+  :: ( CanDb r m
      , HasBacktestConfig r
      , HasAsset a
      )
      => Strategy m a
      -> Constraints a
-     ->  m b
-backtest' strat cs =  do
+     -> Producer (Day, Portfolio) m ()
+start strat cts =  do
   (d:ds) <- tradingDays
   freq   <- view frequency
+  sv <- view startValue
+  p <- lift $ rebalance strat cts d (flow empty sv)
   let rds = rebalanceDays freq ds
-  op <- optimize strat cs d
-  mv <- view startValue
-  let p = fromWeighted op mv
-  return undefined
+  step strat cts rds d p ds
+
+step
+  :: ( CanDb r m, HasBacktestConfig r, HasAsset a )
+     => Strategy m a
+     -> Constraints a
+     -> S.Set Day
+     -> Day
+     -> Portfolio
+     -> [Day]
+     -> Producer (Day, Portfolio) m ()
+step strat cts rds d p (d':ds)  = do
+  p' <- lift $ if S.member d rds
+               then rebalance strat cts d' p
+               else pure p
+  p'' <- lift $ applyReturns d d' p'
+  yield (d', p'')
+  step strat cts rds d' p'' ds
+step _ _ _ _ _ [] = pure ()
+
+rebalance
+  :: ( CanDb r m,  HasAsset a, HasBacktestConfig r)
+     =>  Strategy m a
+     -> Constraints a
+     -> Day
+     -> Portfolio
+     -> m Portfolio
+rebalance strat cts d p = do
+  opt <- optimize strat cts d
+  let mv = marketValue p
+  return $ fromWeighted opt mv
+
+applyReturns
+  :: CanDb r m => Day -> Day -> Portfolio -> m Portfolio
+applyReturns = getAndApplyReturns
+
+saveBacktestMeta' :: ( CanDb r m, HasBacktestConfig r ) => m BacktestMetaId
+saveBacktestMeta' = do
+  c <- view connection
+  v <- view historyVersion
+  bc <- view backtestConfig
+  liftIO $ saveBacktestMeta c
+    (bc^.startDate)
+    (bc ^.startValue)
+    (show (bc^.frequency))
+    "weight?"
+    v
+
+save :: CanDb r m => BacktestMetaId -> Consumer (Day, Portfolio) m ()
+save bId  = forever $ do
+  (d, p) <- await
+  saveHoldings' bId d p
 
 
-
-backtest
-  :: ( MonadIO m
-     , MonadReader r m
-     , HasDbConfig r
-     , HasBacktestConfig r
-     , HasAsset a
-     )
-     => Pipe (Strategy m a, Constraints a, [Day], S.Set Day,  Day, Portfolio) (Day, Portfolio) m ()
-backtest = do
-  (strat, cts, d:ds, rebalDays,  d', p') <- await
-  p'' <- lift $ rebalance strat cts d rebalDays p'
-  yield (d, p'')
-
-rebalance :: (MonadIO m, MonadReader r m, HasAsset a, HasBacktestConfig r, HasDbConfig r)
-  =>  Strategy m a -> Constraints a -> Day -> S.Set Day -> Portfolio
-  -> m Portfolio
-rebalance strat cts d ds p = if S.member d ds
-                             then do
-                               opt <- optimize strat cts d
-                               let mv = marketValue p
-                               return $ fromWeighted opt mv
-                             else
-                               return p
+saveHoldings' :: CanDb r m => BacktestMetaId -> Day -> Portfolio ->  m ()
+saveHoldings' bId d p = do
+  c <- view connection
+  _ <- liftIO $ saveHoldings c bId d (toList p)
+  return ()
