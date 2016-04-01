@@ -275,7 +275,7 @@ type BacktestMetaInsertColumns = BacktestMeta' BacktestMetaIdColumnMaybe
                                                BacktestMetaCreatedAtColumnMaybe
                                                (Column PGInt4)
 type BacktestMeta
-  = BacktestMeta' BacktestMetaId Day Double String String UTCTime
+  = BacktestMeta' BacktestMetaId Day Double String String UTCTime Int
 
 backtestMetaTable :: Table BacktestMetaInsertColumns BacktestMetaColumns
 backtestMetaTable = Table "backtest_meta" $ pBacktestMeta BacktestMeta
