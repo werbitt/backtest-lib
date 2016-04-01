@@ -35,15 +35,15 @@ query d' = do
   return $ map mkEquity ts
 
 
-constraintNoSecondB :: HasAsset a => Constraint a
-constraintNoSecondB x = check $ getAsset x
+constraintNoSecondB :: HasAsset a => FullConstraint a
+constraintNoSecondB x = check $ asset x
   where
     check a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
     hasB (_:'b':_) = Exclude
     hasB _ = Include
 
-constraintNoZ :: HasAsset a => Constraint a
-constraintNoZ x = check $ getAsset x
+constraintNoZ :: HasAsset a => FullConstraint a
+constraintNoZ x = check $ asset x
   where
     check a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
     hasB ('z':_) = Exclude

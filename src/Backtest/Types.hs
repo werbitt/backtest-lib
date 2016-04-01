@@ -48,7 +48,7 @@ module Backtest.Types
        , Price
        , Return
        , HasAsset
-       , getAsset
+       , asset
          -- * Portfolios
        , Portfolio
        , mkPortfolio
@@ -181,10 +181,10 @@ type Price = Double
 type Return = Double
 
 class HasAsset a where
-  getAsset :: a -> Asset
+  asset :: a -> Asset
 
 instance HasAsset Asset where
-  getAsset = id
+  asset = id
 
 
 ------------------------------------------------------------------------
