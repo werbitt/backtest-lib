@@ -1,21 +1,21 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Backtest.Example where
+module Backtest.Example
+       (run') where
 
 import qualified Backtest.Backtest    as B
 import           Backtest.Optimize    (optimize)
 import qualified Backtest.Query       as Q
 import           Backtest.Types       (AppConfig (..), Asset, Backtest,
                                        BacktestConfig (..), CanDb,
-                                       Constrain (..), Constraint,
-                                       Constraints (..), DbConfig (..),
-                                       HasAsset, HasBacktestConfig,
-                                       Ordinal (..), PortfolioW, Strategy (..),
-                                       Weekday (..), connection, getAsset,
-                                       getTicker, historyVersion, mkConstraints,
-                                       mkEquity, mkFrequency, unBacktest,
-                                       unTicker)
+                                       Constrain (..), Constraints (..),
+                                       DbConfig (..), FullConstraint, HasAsset,
+                                       HasBacktestConfig, Ordinal (..),
+                                       PortfolioW, Strategy (..), Weekday (..),
+                                       asset, connection, getTicker,
+                                       historyVersion, mkConstraints, mkEquity,
+                                       mkFrequency, unBacktest, unTicker)
 import           Control.Lens         (view)
 import           Control.Monad.Logger (runStdoutLoggingT)
 import           Control.Monad.Reader (runReaderT)
@@ -50,13 +50,10 @@ constraintNoZ x = check $ asset x
     hasB _ = Include
 
 constraints :: (HasAsset a) => Constraints a
-constraints = mkConstraints [constraintNoSecondB][constraintNoZ][]
+constraints = mkConstraints [constraintNoSecondB][constraintNoZ][] []
 
 d :: Day
 d = fromGregorian 2016 1 26
-
-optimize' :: (CanDb r m, HasBacktestConfig r)=> m PortfolioW
-optimize' = optimize alpha constraints d
 
 run' :: Backtest a -> IO a
 run' m = do
