@@ -77,8 +77,8 @@ rebalance
      -> Portfolio
      -> m Portfolio
 rebalance strat cts d p = do
-  opt <- optimize strat cts d
   let mv = marketValue p
+  opt <- optimize strat cts mv d
   return $ fromWeighted opt mv
 
 applyReturns
