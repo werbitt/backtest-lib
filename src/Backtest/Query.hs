@@ -14,6 +14,7 @@ module Backtest.Query
        , saveBacktestMeta
        , saveHoldings
        , BacktestMetaId
+       , membersForDay
        , priceHistoryQuery
        , priceHistoryTicker
        , priceHistoryDt
