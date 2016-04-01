@@ -363,37 +363,6 @@ saveHoldings c bId d hs = runInsertMany c holdingTable holdings
 
 
 
--- |
--- = Skew
-data SkewHistory' a b c d = SkewHistory { _skewDt             :: a
-                                        , _skewTicker         :: b
-                                        , _skewSkew           :: c
-                                        , _skewHistoryVersion :: d}
-type SkewHistory = SkewHistory' Day Ticker Double
-type SkewHistoryColumn = SkewHistory' (Column PGDate)
-                                      (Column PGText)
-                                      (Column PGFloat8)
-                                      (Column PGInt4)
-$(makeAdaptorAndInstance "pSkewHistory" ''SkewHistory')
-
-skewHistoryTable :: Table SkewHistoryColumn SkewHistoryColumn
-skewHistoryTable = Table "skew_history"
-  (pSkewHistory SkewHistory { _skewDt = required "dt"
-                            , _skewTicker = required "ticker"
-                            , _skewSkew = required "skew_history.skew"
-                            , _skewHistoryVersion = required "history_version"})
-skewHistoryQuery :: Query SkewHistoryColumn
-skewHistoryQuery = queryTable skewHistoryTable
-
-skewQuery :: Int -> Day -> Query (Column PGText, Column PGFloat8)
-skewQuery v d = proc () ->  do
-  SkewHistory dt t sk v' <- skewHistoryQuery -< ()
-  restrictHistoryVersion v -< v'
-  restrictDay d -< dt
-  returnA -< (t, sk)
-
-runSkewQuery :: PGS.Connection -> Int -> Day -> IO[(Ticker, Double)]
-runSkewQuery conn v d = runQuery conn (skewQuery v d) :: IO [(Ticker, Double)]
 
 -- |
 -- = ## Universe
