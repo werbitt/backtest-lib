@@ -14,6 +14,10 @@ module Backtest.Query
        , saveBacktestMeta
        , saveHoldings
        , BacktestMetaId
+       , priceHistoryQuery
+       , priceHistoryTicker
+       , priceHistoryDt
+       , priceHistoryVolume
        ) where
 
 import           Backtest.Types             (Asset, Price, Return, Ticker,
@@ -97,41 +101,53 @@ lastHistoryVersion conn = do
 
 -- |
 -- = Price History
+data PriceHistoryBeta' a
+  =  PriceHistoryBeta { unPriceHistoryBeta :: a } deriving Show
+makeAdaptorAndInstance "pPriceHistoryBeta" ''PriceHistoryBeta'
+type PriceHistoryBeta = PriceHistoryBeta' Double
+type PriceHistoryBetaColumn = PriceHistoryBeta' (Column Double)
+type PriceHistoryBetaColumnNullable = PriceHistoryBeta' (Column (Nullable Double))
 
-data PriceHistory' a b c d e f g h
-  = PriceHistory { _dt               :: a
-                 , _ticker           :: b
-                 , _openPx           :: c
-                 , _closePx          :: d
-                 , _totalReturn      :: e
-                 , _totalReturnIndex :: f
-                 , _beta             :: g
-                 , _historyVersion   :: h }
+
+data PriceHistory' a b c d e f g h i
+  = PriceHistory { _priceHistoryDt               :: a
+                 , _priceHistoryTicker           :: b
+                 , _priceHistoryOpenPx           :: c
+                 , _priceHistoryClosePx          :: d
+                 , _priceHistoryTotalReturn      :: e
+                 , _priceHistoryTotalReturnIndex :: f
+                 , _priceHistoryVolume           :: g
+                 , _priceHistoryBeta             :: h
+                 , _priceHistoryHistoryVersion   :: i }
 makeLenses ''PriceHistory'
+$(makeAdaptorAndInstance "pPriceHistory" ''PriceHistory')
 
-type PriceHistory
-  = PriceHistory' Day Ticker Price Price Return Price Double Int
+
 type PriceHistoryColumn = PriceHistory' (Column PGDate)
                                         (Column PGText)
                                         (Column PGFloat8)
                                         (Column PGFloat8)
                                         (Column PGFloat8)
                                         (Column PGFloat8)
-                                        (Column (Nullable PGFloat8))
+                                        (Column PGFloat8)
+                                        PriceHistoryBetaColumnNullable
                                         (Column PGInt4)
+type PriceHistory
+  = PriceHistory' Day Ticker Price Price Return Price Double (Maybe PriceHistoryBeta) Int
 
-$(makeAdaptorAndInstance "pPriceHistory" ''PriceHistory')
 
 priceHistoryTable :: Table PriceHistoryColumn PriceHistoryColumn
 priceHistoryTable = Table "price_history"
-  (pPriceHistory PriceHistory { _dt = required "dt"
-                              , _ticker = required "ticker"
-                              , _openPx = required "open_px"
-                              , _closePx = required "close_px"
-                              , _totalReturn = required "total_return"
-                              , _totalReturnIndex = required "total_return_index"
-                              , _beta = required "beta"
-                              , _historyVersion = required "history_version" })
+  (pPriceHistory
+   PriceHistory { _priceHistoryDt = required "dt"
+                , _priceHistoryTicker = required "ticker"
+                , _priceHistoryOpenPx = required "open_px"
+                , _priceHistoryClosePx = required "close_px"
+                , _priceHistoryTotalReturn = required "total_return"
+                , _priceHistoryTotalReturnIndex = required "total_return_index"
+                , _priceHistoryVolume = required "volume"
+                , _priceHistoryBeta = pPriceHistoryBeta . PriceHistoryBeta $ required "beta"
+                , _priceHistoryHistoryVersion = required "history_version" })
 
 priceHistoryQuery :: Query PriceHistoryColumn
 priceHistoryQuery = queryTable priceHistoryTable
@@ -144,11 +160,11 @@ lastTotalReturnIndexQuery
   :: Int -> Day -> Ticker -> Query (Column PGDate, Column PGText,Column PGFloat8)
 lastTotalReturnIndexQuery v d t = limit 1 $ orderBy (desc (^._1)) $  proc () -> do
   ph <- priceHistoryQuery -< ()
-  restrictHistoryVersion v -< ph^.historyVersion
-  restrict -< ph^.dt .<= constant d
-  restrict -< ph^.ticker .== constant t
-  restrict -< ph^.totalReturnIndex ./= 0
-  returnA -< (ph^.dt, ph^.ticker, ph^.totalReturnIndex)
+  restrictHistoryVersion v -< ph^.priceHistoryHistoryVersion
+  restrict -< ph^.priceHistoryDt .<= constant d
+  restrict -< ph^.priceHistoryTicker .== constant t
+  restrict -< ph^.priceHistoryTotalReturnIndex ./= 0
+  returnA -< (ph^.priceHistoryDt, ph^.priceHistoryTicker, ph^.priceHistoryTotalReturnIndex)
 
 returnQuery :: Int -> Day -> Day -> Ticker
             -> Query (Column PGText, Column PGFloat8, Column PGFloat8)
@@ -170,9 +186,9 @@ runReturnQuery conn v sd ed ts = do
 tradingDaysQuery :: Int -> Day -> Query (Column PGDate)
 tradingDaysQuery v sd = orderBy (asc id) $ distinct $ proc () -> do
   ph <- priceHistoryQuery -< ()
-  restrict -< ph^.historyVersion .== constant v
-  restrict -< ph^.dt .>= constant sd
-  returnA -< ph^.dt
+  restrict -< ph^.priceHistoryHistoryVersion .== constant v
+  restrict -< ph^.priceHistoryDt .>= constant sd
+  returnA -< ph^.priceHistoryDt
 
 tradingDays :: PGS.Connection -> Int -> Day  -> IO [Day]
 tradingDays conn v d = runQuery conn (tradingDaysQuery v d) :: IO [Day]
