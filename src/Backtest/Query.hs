@@ -19,6 +19,7 @@ module Backtest.Query
        , priceHistoryTicker
        , priceHistoryDt
        , priceHistoryVolume
+       , priceHistoryClosePx
        ) where
 
 import           Backtest.Types             (Asset, Price, Return, Ticker,
@@ -130,7 +131,7 @@ type PriceHistoryColumn = PriceHistory' (Column PGDate)
                                         (Column PGFloat8)
                                         (Column PGFloat8)
                                         (Column PGFloat8)
-                                        (Column PGFloat8)
+                                        (Column PGInt8)
                                         PriceHistoryBetaColumnNullable
                                         (Column PGInt4)
 type PriceHistory
