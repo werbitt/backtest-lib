@@ -49,6 +49,7 @@ start strat cts =  do
   sv <- view startValue
   p <- lift $ rebalance strat cts d (flow empty sv)
   let rds = rebalanceDays freq ds
+  yield (d, p)
   step strat cts rds d p ds
 
 step
