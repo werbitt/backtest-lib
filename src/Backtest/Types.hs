@@ -207,7 +207,7 @@ instance (Num a, Eq a) => Monoid (PortfolioF a) where
     M.filter (/= 0) (M.unionWith (+) m1 m2)
 
 mkPortfolio :: (Num a, Eq a) => [(Asset, a)] -> PortfolioF a
-mkPortfolio = PortfolioF . M.fromList
+mkPortfolio = PortfolioF . M.fromListWith (+)
 
 
 ------------------------------------------------------------------------
