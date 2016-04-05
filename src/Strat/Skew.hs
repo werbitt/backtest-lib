@@ -15,6 +15,7 @@ import           Backtest.Types         (CanDb, Constraints, Strategy (..),
 import           Control.Lens           (view, (^.))
 import           Control.Monad.IO.Class (liftIO)
 import           Data.List              (sortOn)
+import           Data.Ord               (Down (..))
 import           Data.Time              (Day)
 import           Strat.Skew.Db          (runSkewQuery)
 import           Strat.Skew.Types       (SkewData, skewDataSkew)
@@ -31,7 +32,7 @@ getSkews d = do
 
 
 rankSkews :: [SkewData] -> [SkewData]
-rankSkews = sortOn (^.skewDataSkew)
+rankSkews = sortOn (Down . (^.skewDataSkew))
 
 constraints :: HasVolume a => Constraints a
 constraints = mkConstraints [] [] [] [mkVolumeConstraint' 0.3]
