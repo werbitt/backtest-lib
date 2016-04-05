@@ -57,7 +57,7 @@ nthDay ord day y m = fromGregorian y m $ getFirst + (ord' - 1) * 7
                  else 8 + day' - startDay
 
 after :: Day -> [Day] -> [Day]
-after d = dropWhile (<= d)
+after d = dropWhile (< d)
 
 delay :: Int -> [Day] -> [Day]
 delay = drop
