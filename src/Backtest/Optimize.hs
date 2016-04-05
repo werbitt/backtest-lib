@@ -12,8 +12,8 @@ import           Backtest.Types           (CanDb, Constrain (..), Constraints,
                                            HasBacktestConfig, PortfolioW,
                                            Strategy, asset, backtestConfig,
                                            buffer, cutoff, getData, global,
-                                           long, mkPortfolio, rank, short,
-                                           volume)
+                                           long, mkCash, mkPortfolio, rank,
+                                           short, volume)
 import           Control.Lens             (view, (^.))
 import           Data.Bifunctor           (bimap, first)
 import           Data.Time                (Day)
@@ -34,7 +34,8 @@ optimize strat cts mv d = do
   n <- view (backtestConfig.cutoff) >>= \c -> return $ floor $ c * realToFrac (length ranked)
   let lngWgts = map (first asset) $ mkWeights (cts^.volume) mv n totWgt longs
   let shtWgts = map (bimap asset negate) $ mkWeights (cts^.volume) mv n totWgt shorts
-  return $ mkPortfolio $ lngWgts ++ shtWgts
+  let cshWgt = 1 - (sum (map snd shtWgts) +  sum (map snd lngWgts))
+  return $ mkPortfolio $ (mkCash, cshWgt) : lngWgts ++ shtWgts
 
 
 runFullConstraints :: [FullConstraint a] -> [a] -> [a]
