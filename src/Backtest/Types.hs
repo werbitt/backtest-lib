@@ -88,8 +88,8 @@ import           Control.Lens.TH                 (makeClassy, makeLenses)
 import           Control.Monad.IO.Class          (MonadIO)
 import           Control.Monad.Logger            (LoggingT)
 import           Control.Monad.Reader            (MonadReader, ReaderT)
-import           Data.Map                        (Map)
-import qualified Data.Map                        as M
+import           Data.Map.Strict                 (Map)
+import qualified Data.Map.Strict                 as M
 import           Data.Profunctor.Product.Default (Default, def)
 import           Data.Time                       (Day)
 import           Database.PostgreSQL.Simple      (Connection)
