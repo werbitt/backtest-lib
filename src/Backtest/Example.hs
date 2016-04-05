@@ -63,9 +63,9 @@ run' m = do
         AppConfig { appDbConfig = DbConfig { _connection = conn
                                            , _historyVersion = version }
                   , appBacktestConfig = BacktestConfig { _startDate = fromGregorian 2006 1 1
-                                                       , _startValue = 1000000
-                                                       , _frequency = mkFrequency Second Friday 2
+                                                       , _startValue = 2000000
+                                                       , _frequency = mkFrequency Third Friday 2
                                                        , _cutoff = 0.05
-                                                       , _buffer = 0.10 }}
+                                                       , _buffer = 0 }}
 
   runStdoutLoggingT $ runReaderT (unBacktest m) config
