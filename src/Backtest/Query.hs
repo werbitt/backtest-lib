@@ -39,7 +39,7 @@ import           Opaleye                    (Column, Nullable, Query, QueryArr,
                                              (./=), (.<=), (.==), (.>=))
 import           Opaleye.Manipulation       (runInsertMany, runInsertReturning)
 import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGInt8,
-                                             PGNumeric, PGText, PGTimestamptz)
+                                             PGText, PGTimestamptz)
 import           Opaleye.RunQuery           (runQuery)
 import           Prelude                    hiding (max)
 
