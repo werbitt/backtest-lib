@@ -184,28 +184,29 @@ priceHistoryQuery = queryTable priceHistoryTable
 -- == Return
 
 lastTotalReturnIndexQuery
-  :: Int -> Day -> Ticker -> Query (Column PGDate, Column PGText,Column PGFloat8)
-lastTotalReturnIndexQuery v d t = limit 1 $ orderBy (desc (^._1)) $  proc () -> do
+  :: Int -> Day -> SecurityId -> Query (Column PGDate, SecurityIdColumn, Column PGFloat8)
+lastTotalReturnIndexQuery v d sid = limit 1 $ orderBy (desc (^._1)) $  proc () -> do
   ph <- priceHistoryQuery -< ()
   restrictHistoryVersion v -< ph^.priceHistoryHistoryVersion
   restrict -< ph^.priceHistoryDt .<= constant d
-  restrict -< ph^.priceHistoryTicker .== constant t
+  restrict -< ph^.priceHistorySecurityId.to unSecurityId .== constant (unSecurityId sid)
   restrict -< ph^.priceHistoryTotalReturnIndex ./= 0
-  returnA -< (ph^.priceHistoryDt, ph^.priceHistoryTicker, ph^.priceHistoryTotalReturnIndex)
+  returnA -< (ph^.priceHistoryDt, ph^.priceHistorySecurityId, ph^.priceHistoryTotalReturnIndex)
 
-returnQuery :: Int -> Day -> Day -> Ticker
-            -> Query (Column PGText, Column PGFloat8, Column PGFloat8)
-returnQuery v sd ed t = proc () -> do
-  (_, t', startPrice) <- lastTotalReturnIndexQuery v sd t -< ()
-  (_, t'', endPrice) <- lastTotalReturnIndexQuery v ed t -< ()
-  restrict -< t' .== t''
-  returnA -< (t', startPrice, endPrice)
+returnQuery :: Int -> Day -> Day -> SecurityId
+            -> Query (SecurityIdColumn, Column PGFloat8, Column PGFloat8)
+returnQuery v sd ed sid = proc () -> do
+  (_, sid', startPrice) <- lastTotalReturnIndexQuery v sd sid -< ()
+  (_, sid'', endPrice) <- lastTotalReturnIndexQuery v ed sid -< ()
+  restrict -< unSecurityId sid' .== unSecurityId sid''
+  returnA -< (sid', startPrice, endPrice)
 
-runReturnQuery :: PGS.Connection -> Int -> Day -> Day -> [Ticker] -> IO (M.Map Asset Double)
-runReturnQuery conn v sd ed ts = do
-  let q t = runQuery conn (returnQuery v sd ed t) :: IO [(Ticker, Double, Double)]
-  res <- concat <$>  mapM q ts
-  return $ M.fromList (map (\(t, sp, ep) -> (mkEquity t, (ep / sp) - 1)) res)
+runReturnQuery :: PGS.Connection -> Int -> Day -> Day -> [SecurityId]
+               -> IO (M.Map SecurityId Double)
+runReturnQuery conn v sd ed sids = do
+  let q sid = runQuery conn (returnQuery v sd ed sid) :: IO [(SecurityId, Double, Double)]
+  res <- concat <$>  mapM q sids
+  return $ M.fromList (map (\(sid, sp, ep) -> (sid, (ep / sp) - 1)) res)
 
 -- |
 -- == Trading Days
