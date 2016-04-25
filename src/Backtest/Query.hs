@@ -16,10 +16,9 @@ module Backtest.Query
        , BacktestMetaId
        , membersForDay
        , priceHistoryQuery
---       , priceHistoryTicker
        , priceHistoryDt
-       , priceHistoryVolume
-       , priceHistoryClosePx
+       --, priceHistoryVolume
+       --, priceHistoryClosePx
        ) where
 
 import           Backtest.Db.Ids            (PriceHistoryId,
@@ -29,6 +28,11 @@ import           Backtest.Db.Ids            (PriceHistoryId,
                                              SecurityId, SecurityId' (..),
                                              SecurityIdColumn, pPriceHistoryId,
                                              pSecurityId)
+import           Backtest.Db.PriceHistory   (priceHistoryDt,
+                                             priceHistoryHistoryVersion,
+                                             priceHistoryQuery,
+                                             priceHistorySecurityId,
+                                             priceHistoryTotalReturnIndex)
 import           Backtest.Types             (Asset, GlobalId, Price, Return,
                                              Ticker, mkEquity)
 import           Control.Arrow              (returnA)
@@ -109,83 +113,14 @@ lastHistoryVersion conn = do
    return $ _version . head $ result
 
 
--- |
--- = Price History
-data PriceHistoryBeta' a
-  =  PriceHistoryBeta { unPriceHistoryBeta :: a } deriving Show
-makeAdaptorAndInstance "pPriceHistoryBeta" ''PriceHistoryBeta'
-type PriceHistoryBeta = PriceHistoryBeta' Double
-type PriceHistoryBetaColumn = PriceHistoryBeta' (Column PGFloat8)
-type PriceHistoryBetaColumnMaybe = PriceHistoryBeta' (Maybe (Column (Nullable PGFloat8)))
-type PriceHistoryBetaColumnNullable = PriceHistoryBeta' (Column (Nullable PGFloat8))
 
-
-data PriceHistory' a b c d e f g h i j
-  = PriceHistory { _priceHistoryId               :: a
-                 , _priceHistoryDt               :: b
-                 , _priceHistorySecurityId       :: c
-                 , _priceHistoryOpenPx           :: d
-                 , _priceHistoryClosePx          :: e
-                 , _priceHistoryTotalReturn      :: f
-                 , _priceHistoryTotalReturnIndex :: g
-                 , _priceHistoryVolume           :: h
-                 , _priceHistoryBeta             :: i
-                 , _priceHistoryHistoryVersion   :: j }
-
-makeLenses ''PriceHistory'
-makeAdaptorAndInstance "pPriceHistory" ''PriceHistory'
-
-type PriceHistoryColumns = PriceHistory' PriceHistoryIdColumn
-                                        (Column PGDate)
-                                        SecurityIdColumn
-                                        (Column PGFloat8)
-                                        (Column PGFloat8)
-                                        (Column PGFloat8)
-                                        (Column PGFloat8)
-                                        (Column PGInt8)
-                                        PriceHistoryBetaColumnNullable
-                                        (Column PGInt4)
-
-type PriceHistoryInsertColumns = PriceHistory' PriceHistoryIdColumnMaybe
-                                               (Column PGDate)
-                                               SecurityIdColumn
-                                               (Column PGFloat8)
-                                               (Column PGFloat8)
-                                               (Column PGFloat8)
-                                               (Column PGFloat8)
-                                               (Column PGInt8)
-                                               PriceHistoryBetaColumnMaybe
-                                               (Column PGInt4)
-
-
-type PriceHistory
-  = PriceHistory' Day SecurityId Price Price Return Price Double (Maybe PriceHistoryBeta) Int
-
-
-priceHistoryTable :: Table PriceHistoryInsertColumns PriceHistoryColumns
-priceHistoryTable = Table "price_history"
-  (pPriceHistory
-   PriceHistory { _priceHistoryId = pPriceHistoryId . PriceHistoryId $ optional "id"
-                , _priceHistoryDt = required "dt"
-                , _priceHistorySecurityId = pSecurityId . SecurityId $ required "security_id"
-                , _priceHistoryOpenPx = required "open_px"
-                , _priceHistoryClosePx = required "close_px"
-                , _priceHistoryTotalReturn = required "total_return"
-                , _priceHistoryTotalReturnIndex = required "total_return_index"
-                , _priceHistoryVolume = required "volume"
-                , _priceHistoryBeta = pPriceHistoryBeta . PriceHistoryBeta $ optional "beta"
-                , _priceHistoryHistoryVersion = required "history_version" })
-
-priceHistoryQuery :: Query PriceHistoryColumns
-priceHistoryQuery = queryTable priceHistoryTable
-
-
--- |
--- == Return
+--Return-------------------------------------------------------------------------
 
 lastTotalReturnIndexQuery
-  :: Int -> Day -> SecurityId -> Query (Column PGDate, SecurityIdColumn, Column PGFloat8)
-lastTotalReturnIndexQuery v d sid = limit 1 $ orderBy (desc (^._1)) $  proc () -> do
+  :: Int -> Day -> SecurityId
+  -> Query (Column PGDate, SecurityIdColumn, Column PGFloat8)
+lastTotalReturnIndexQuery v d sid
+  = limit 1 $ orderBy (desc (^._1)) $  proc () -> do
   ph <- priceHistoryQuery -< ()
   restrictHistoryVersion v -< ph^.priceHistoryHistoryVersion
   restrict -< ph^.priceHistoryDt .<= constant d
