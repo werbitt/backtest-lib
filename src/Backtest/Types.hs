@@ -1,3 +1,4 @@
+
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveFoldable             #-}
 {-# LANGUAGE DeriveFunctor              #-}
@@ -41,6 +42,7 @@ module Backtest.Types
        , mkCash
        , mkEquity
        , Ticker
+       , GlobalId
        , mkTicker
        , unTicker
        , getTicker
@@ -91,11 +93,13 @@ import           Control.Monad.Reader            (MonadReader, ReaderT)
 import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as M
 import           Data.Profunctor.Product.Default (Default, def)
+import           Data.Text                       (Text)
 import           Data.Time                       (Day)
 import           Database.PostgreSQL.Simple      (Connection)
 import           Opaleye.Column                  (Column)
 import           Opaleye.Constant                (Constant (..))
-import           Opaleye.PGTypes                 (PGText, pgString)
+import           Opaleye.PGTypes                 (PGText, pgStrictText,
+                                                  pgString)
 import           Opaleye.RunQuery                (QueryRunnerColumnDefault)
 
 ------------------------------------------------------------------------
@@ -154,8 +158,11 @@ instance Default Constant Ticker (Column PGText) where
 mkTicker :: String -> Ticker
 mkTicker = Ticker
 
--- unTicker :: Ticker -> String
--- unTicker (Ticker s) = s
+newtype GlobalId = GlobalId { unGlobalId :: Text } deriving (Show, Eq, Ord)
+deriving instance QueryRunnerColumnDefault PGText GlobalId
+
+instance Default Constant GlobalId (Column PGText) where
+  def = Constant $ pgStrictText . unGlobalId
 
 data Asset = Cash | Equity Ticker deriving (Show, Eq, Ord)
 
