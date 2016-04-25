@@ -225,40 +225,40 @@ tradingDays conn v d = runQuery conn (tradingDaysQuery v d) :: IO [Day]
 -- |
 -- = Members
 
-data Members' a b c d = Members { _memberId             :: a
-                                , _memberDt             :: b
-                                , _memberTicker         :: c
-                                , _memberHistoryVersion :: d }
+data Members' a b c d = Members { _memberId         :: a
+                                , _memberUniverse   :: b
+                                , _memberDt         :: c
+                                , _memberSecurityId :: d }
+
 makeLenses ''Members'
-type Members = Members' Int64 Day Ticker Int
+makeAdaptorAndInstance "pMembers" ''Members'
 
+type MembersColumns = Members' (Column PGInt4)
+                               (Column PGText)
+                               (Column PGDate)
+                               SecurityIdColumn
 
-type MembersColumn = Members' (Column PGInt8)
-                              (Column PGDate)
-                              (Column PGText)
-                              (Column PGInt4)
+type Members = Members' Int Text Day SecurityId
 
-$(makeAdaptorAndInstance "pMembers" ''Members')
-
-membersTable :: Table MembersColumn MembersColumn
+membersTable :: Table MembersColumns MembersColumns
 membersTable = Table "members"
   (pMembers Members { _memberId = required "id"
+                    , _memberUniverse = required "universe"
                     , _memberDt = required "dt"
-                    , _memberTicker =  required "ticker"
-                    , _memberHistoryVersion = required "history_version" })
+                    , _memberSecurityId = pSecurityId . SecurityId $ required "security_id" })
 
-membersQuery :: Query MembersColumn
+membersQuery :: Query MembersColumns
 membersQuery = queryTable membersTable
 
-membersForDay :: Int -> Day -> Query (Column PGText)
-membersForDay v d = proc () -> do
+membersForDay :: Text -> Day -> Query SecurityIdColumn
+membersForDay u d = proc () -> do
   m <- membersQuery -< ()
-  restrictHistoryVersion v -< m^.memberHistoryVersion
+  restrict -< m^.memberUniverse .== constant u
   restrictDay d -< m^.memberDt
-  returnA -< m^.memberTicker
+  returnA -< m^.memberSecurityId
 
-runMembersQuery :: PGS.Connection -> Int -> Day -> IO [Ticker]
-runMembersQuery conn v d = runQuery conn (membersForDay v d) :: IO [Ticker]
+runMembersQuery :: PGS.Connection -> Text -> Day -> IO [SecurityId]
+runMembersQuery conn u d = runQuery conn (membersForDay u d) :: IO [SecurityId]
 
 -- |
 -- = Backtest Meta
@@ -395,14 +395,14 @@ saveHoldings c bId d hs = runInsertMany c holdingTable holdings
 -- = ## Universe
 
 
-universeQuery :: Int -> Day -> Query (Column PGText)
-universeQuery v d = proc () -> do
-  Members _ d' t v' <- membersQuery -< ()
-  restrictHistoryVersion v -< v'
-  restrictDay d -< d'
-  returnA -< t
+universeQuery :: Text -> Day -> Query SecurityIdColumn
+universeQuery u d = proc () -> do
+  m <- membersQuery -< ()
+  restrict -< m^.memberUniverse .== constant u
+  restrictDay d -< m^.memberDt
+  returnA -< m^.memberSecurityId
 
 --skewOfTicker :: QueryArr (Column Ticker) (Column Double)
 
-universe :: PGS.Connection -> Int -> Day -> IO [Ticker]
-universe conn v d = runQuery conn (universeQuery v d) :: IO [Ticker]
+universe :: PGS.Connection -> Text -> Day -> IO [SecurityId]
+universe conn u d = runQuery conn (universeQuery u d) :: IO [SecurityId]
