@@ -16,19 +16,27 @@ module Backtest.Query
        , BacktestMetaId
        , membersForDay
        , priceHistoryQuery
-       , priceHistoryTicker
+--       , priceHistoryTicker
        , priceHistoryDt
        , priceHistoryVolume
        , priceHistoryClosePx
        ) where
 
-import           Backtest.Types             (Asset, Price, Return, Ticker,
-                                             mkEquity)
+import           Backtest.Db.Ids            (PriceHistoryId,
+                                             PriceHistoryId' (..),
+                                             PriceHistoryIdColumn,
+                                             PriceHistoryIdColumnMaybe,
+                                             SecurityId, SecurityId' (..),
+                                             SecurityIdColumn, pPriceHistoryId,
+                                             pSecurityId)
+import           Backtest.Types             (Asset, GlobalId, Price, Return,
+                                             Ticker, mkEquity)
 import           Control.Arrow              (returnA)
-import           Control.Lens               (makeLenses, (^.), _1)
+import           Control.Lens               (makeLenses, to, (^.), _1)
 import           Data.Int                   (Int64)
 import qualified Data.Map.Strict            as M
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
+import           Data.Text                  (Text)
 import           Data.Time                  (Day, UTCTime)
 import qualified Database.PostgreSQL.Simple as PGS
 import           Opaleye                    (Column, Nullable, Query, QueryArr,
@@ -107,26 +115,29 @@ data PriceHistoryBeta' a
   =  PriceHistoryBeta { unPriceHistoryBeta :: a } deriving Show
 makeAdaptorAndInstance "pPriceHistoryBeta" ''PriceHistoryBeta'
 type PriceHistoryBeta = PriceHistoryBeta' Double
-type PriceHistoryBetaColumn = PriceHistoryBeta' (Column Double)
-type PriceHistoryBetaColumnNullable = PriceHistoryBeta' (Column (Nullable Double))
+type PriceHistoryBetaColumn = PriceHistoryBeta' (Column PGFloat8)
+type PriceHistoryBetaColumnMaybe = PriceHistoryBeta' (Maybe (Column (Nullable PGFloat8)))
+type PriceHistoryBetaColumnNullable = PriceHistoryBeta' (Column (Nullable PGFloat8))
 
 
-data PriceHistory' a b c d e f g h i
-  = PriceHistory { _priceHistoryDt               :: a
-                 , _priceHistoryTicker           :: b
-                 , _priceHistoryOpenPx           :: c
-                 , _priceHistoryClosePx          :: d
-                 , _priceHistoryTotalReturn      :: e
-                 , _priceHistoryTotalReturnIndex :: f
-                 , _priceHistoryVolume           :: g
-                 , _priceHistoryBeta             :: h
-                 , _priceHistoryHistoryVersion   :: i }
+data PriceHistory' a b c d e f g h i j
+  = PriceHistory { _priceHistoryId               :: a
+                 , _priceHistoryDt               :: b
+                 , _priceHistorySecurityId       :: c
+                 , _priceHistoryOpenPx           :: d
+                 , _priceHistoryClosePx          :: e
+                 , _priceHistoryTotalReturn      :: f
+                 , _priceHistoryTotalReturnIndex :: g
+                 , _priceHistoryVolume           :: h
+                 , _priceHistoryBeta             :: i
+                 , _priceHistoryHistoryVersion   :: j }
+
 makeLenses ''PriceHistory'
-$(makeAdaptorAndInstance "pPriceHistory" ''PriceHistory')
+makeAdaptorAndInstance "pPriceHistory" ''PriceHistory'
 
-
-type PriceHistoryColumn = PriceHistory' (Column PGDate)
-                                        (Column PGText)
+type PriceHistoryColumns = PriceHistory' PriceHistoryIdColumn
+                                        (Column PGDate)
+                                        SecurityIdColumn
                                         (Column PGFloat8)
                                         (Column PGFloat8)
                                         (Column PGFloat8)
@@ -134,24 +145,38 @@ type PriceHistoryColumn = PriceHistory' (Column PGDate)
                                         (Column PGInt8)
                                         PriceHistoryBetaColumnNullable
                                         (Column PGInt4)
+
+type PriceHistoryInsertColumns = PriceHistory' PriceHistoryIdColumnMaybe
+                                               (Column PGDate)
+                                               SecurityIdColumn
+                                               (Column PGFloat8)
+                                               (Column PGFloat8)
+                                               (Column PGFloat8)
+                                               (Column PGFloat8)
+                                               (Column PGInt8)
+                                               PriceHistoryBetaColumnMaybe
+                                               (Column PGInt4)
+
+
 type PriceHistory
-  = PriceHistory' Day Ticker Price Price Return Price Double (Maybe PriceHistoryBeta) Int
+  = PriceHistory' Day SecurityId Price Price Return Price Double (Maybe PriceHistoryBeta) Int
 
 
-priceHistoryTable :: Table PriceHistoryColumn PriceHistoryColumn
+priceHistoryTable :: Table PriceHistoryInsertColumns PriceHistoryColumns
 priceHistoryTable = Table "price_history"
   (pPriceHistory
-   PriceHistory { _priceHistoryDt = required "dt"
-                , _priceHistoryTicker = required "ticker"
+   PriceHistory { _priceHistoryId = pPriceHistoryId . PriceHistoryId $ optional "id"
+                , _priceHistoryDt = required "dt"
+                , _priceHistorySecurityId = pSecurityId . SecurityId $ required "security_id"
                 , _priceHistoryOpenPx = required "open_px"
                 , _priceHistoryClosePx = required "close_px"
                 , _priceHistoryTotalReturn = required "total_return"
                 , _priceHistoryTotalReturnIndex = required "total_return_index"
                 , _priceHistoryVolume = required "volume"
-                , _priceHistoryBeta = pPriceHistoryBeta . PriceHistoryBeta $ required "beta"
+                , _priceHistoryBeta = pPriceHistoryBeta . PriceHistoryBeta $ optional "beta"
                 , _priceHistoryHistoryVersion = required "history_version" })
 
-priceHistoryQuery :: Query PriceHistoryColumn
+priceHistoryQuery :: Query PriceHistoryColumns
 priceHistoryQuery = queryTable priceHistoryTable
 
 
