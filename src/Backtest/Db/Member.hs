@@ -18,9 +18,9 @@ import           Control.Lens               (makeLenses)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.Text                  (Text)
 import           Data.Time                  (Day)
-import           Opaleye                    (Column, PGDate, PGInt4, PGText,
-                                             Query, Table (..), optional,
-                                             queryTable, required)
+import           Opaleye                    (Column, PGDate, PGText, Query,
+                                             Table (..), optional, queryTable,
+                                             required)
 
 data Member' a b c d = Member { _memberId         :: a
                               , _memberUniverse   :: b
