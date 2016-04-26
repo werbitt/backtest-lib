@@ -23,23 +23,16 @@ module Backtest.Query
 import           Backtest.Db.BacktestMeta   (BacktestMeta' (..),
                                              BacktestMetaCreatedAt' (..),
                                              backtestMetaId, backtestMetaTable)
-import           Backtest.Db.HistoryVersion (HistoryVersion' (..),
-                                             historyVersionId,
-                                             historyVersionQuery,
-                                             pHistoryVersion)
+import           Backtest.Db.HistoryVersion (historyVersionId,
+                                             historyVersionQuery)
 import           Backtest.Db.Ids            (BacktestMetaId,
                                              BacktestMetaId' (..),
                                              BacktestMetaIdColumn,
                                              HistoryVersionId,
                                              HistoryVersionId' (..),
-                                             HistoryVersionIdColumn,
-                                             PriceHistoryId,
-                                             PriceHistoryId' (..),
-                                             PriceHistoryIdColumn,
-                                             PriceHistoryIdColumnMaybe,
-                                             SecurityId, SecurityId' (..),
-                                             SecurityIdColumn, pBacktestMetaId,
-                                             pPriceHistoryId, pSecurityId)
+                                             HistoryVersionIdColumn, SecurityId,
+                                             SecurityId' (..), SecurityIdColumn,
+                                             pBacktestMetaId)
 import           Backtest.Db.Member         (memberDt, memberQuery,
                                              memberSecurityId, memberUniverse)
 import           Backtest.Db.PriceHistory   (priceHistoryDt,
@@ -47,15 +40,14 @@ import           Backtest.Db.PriceHistory   (priceHistoryDt,
                                              priceHistoryQuery,
                                              priceHistorySecurityId,
                                              priceHistoryTotalReturnIndex)
-import           Backtest.Types             (Asset, GlobalId, Price, Return,
-                                             Ticker, mkEquity)
+import           Backtest.Types             (Asset, Ticker)
 import           Control.Arrow              (returnA)
 import           Control.Lens               (makeLenses, to, (^.), _1)
 import           Data.Int                   (Int64)
 import qualified Data.Map.Strict            as M
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.Text                  (Text)
-import           Data.Time                  (Day, UTCTime)
+import           Data.Time                  (Day)
 import qualified Database.PostgreSQL.Simple as PGS
 import           Opaleye                    (Column, Nullable, Query, QueryArr,
                                              Table (..), aggregate, asc,
@@ -65,7 +57,7 @@ import           Opaleye                    (Column, Nullable, Query, QueryArr,
                                              (./=), (.<=), (.==), (.>=))
 import           Opaleye.Manipulation       (runInsertMany, runInsertReturning)
 import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGInt8,
-                                             PGText, PGTimestamptz)
+                                             PGText)
 import           Opaleye.RunQuery           (runQuery)
 import           Prelude                    hiding (max)
 
