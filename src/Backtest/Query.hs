@@ -35,6 +35,8 @@ import           Backtest.Db.Ids            (HistoryVersionId,
                                              SecurityId, SecurityId' (..),
                                              SecurityIdColumn, pPriceHistoryId,
                                              pSecurityId)
+import           Backtest.Db.Member         (memberDt, memberQuery,
+                                             memberSecurityId, memberUniverse)
 import           Backtest.Db.PriceHistory   (priceHistoryDt,
                                              priceHistoryHistoryVersion,
                                              priceHistoryQuery,
@@ -131,8 +133,8 @@ runReturnQuery conn v sd ed sids = do
   res <- concat <$>  mapM q sids
   return $ M.fromList (map (\(sid, sp, ep) -> (sid, (ep / sp) - 1)) res)
 
--- |
--- == Trading Days
+
+--Trading Days-------------------------------------------------------------------
 
 tradingDaysQuery :: Int -> Day -> Query (Column PGDate)
 tradingDaysQuery v sd = orderBy (asc id) $ distinct $ proc () -> do
@@ -145,43 +147,18 @@ tradingDays :: PGS.Connection -> Int -> Day  -> IO [Day]
 tradingDays conn v d = runQuery conn (tradingDaysQuery v d) :: IO [Day]
 
 
--- |
--- = Members
-
-data Members' a b c d = Members { _memberId         :: a
-                                , _memberUniverse   :: b
-                                , _memberDt         :: c
-                                , _memberSecurityId :: d }
-
-makeLenses ''Members'
-makeAdaptorAndInstance "pMembers" ''Members'
-
-type MembersColumns = Members' (Column PGInt4)
-                               (Column PGText)
-                               (Column PGDate)
-                               SecurityIdColumn
-
-type Members = Members' Int Text Day SecurityId
-
-membersTable :: Table MembersColumns MembersColumns
-membersTable = Table "members"
-  (pMembers Members { _memberId = required "id"
-                    , _memberUniverse = required "universe"
-                    , _memberDt = required "dt"
-                    , _memberSecurityId = pSecurityId . SecurityId $ required "security_id" })
-
-membersQuery :: Query MembersColumns
-membersQuery = queryTable membersTable
+--MembersForDay------------------------------------------------------------------
 
 membersForDay :: Text -> Day -> Query SecurityIdColumn
 membersForDay u d = proc () -> do
-  m <- membersQuery -< ()
+  m <- memberQuery -< ()
   restrict -< m^.memberUniverse .== constant u
   restrictDay d -< m^.memberDt
   returnA -< m^.memberSecurityId
 
 runMembersQuery :: PGS.Connection -> Text -> Day -> IO [SecurityId]
 runMembersQuery conn u d = runQuery conn (membersForDay u d) :: IO [SecurityId]
+
 
 -- |
 -- = Backtest Meta
@@ -320,7 +297,7 @@ saveHoldings c bId d hs = runInsertMany c holdingTable holdings
 
 universeQuery :: Text -> Day -> Query SecurityIdColumn
 universeQuery u d = proc () -> do
-  m <- membersQuery -< ()
+  m <- memberQuery -< ()
   restrict -< m^.memberUniverse .== constant u
   restrictDay d -< m^.memberDt
   returnA -< m^.memberSecurityId

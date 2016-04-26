@@ -3,16 +3,21 @@
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Backtest.Db.Ids
-       ( HistoryVersionId'(..)
-       , HistoryVersionId
-       , HistoryVersionIdColumn
-       , HistoryVersionIdColumnMaybe
-       , SecurityId' (..)
+       ( SecurityId' (..)
        , pSecurityId
        , SecurityId
        , SecurityIdColumn
        , SecurityIdColumnMaybe
 --     , SecurityIdColumnNullable
+       , MemberId' (..)
+       , pMemberId
+       , MemberId
+       , MemberIdColumn
+       , MemberIdColumnMaybe
+       , HistoryVersionId'(..)
+       , HistoryVersionId
+       , HistoryVersionIdColumn
+       , HistoryVersionIdColumnMaybe
        , PriceHistoryId' (..)
        , pPriceHistoryId
        , PriceHistoryId
@@ -21,18 +26,9 @@ module Backtest.Db.Ids
        , pHistoryVersionId
        ) where
 
+import           Data.Int                   (Int64)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
-import           Opaleye                    (Column, PGInt4)
-
---History Version----------------------------------------------------------------
-
-data HistoryVersionId' a = HistoryVersionId { unHistoryVersionId :: a }
-                         deriving (Show)
-makeAdaptorAndInstance "pHistoryVersionId" ''HistoryVersionId'
-
-type HistoryVersionId = HistoryVersionId' Int
-type HistoryVersionIdColumn = HistoryVersionId' (Column PGInt4)
-type HistoryVersionIdColumnMaybe = HistoryVersionId' (Maybe (Column PGInt4))
+import           Opaleye                    (Column, PGInt4, PGInt8)
 
 
 --Security-----------------------------------------------------------------------
@@ -44,6 +40,28 @@ type SecurityId = SecurityId' Int
 type SecurityIdColumn = SecurityId' (Column PGInt4)
 type SecurityIdColumnMaybe = SecurityId' (Maybe (Column PGInt4))
 --type SecurityIdColumnNullable = SecurityId' (Column (Nullable PGInt4))
+
+
+--Member-------------------------------------------------------------------------
+
+data MemberId' a = MemberId { unMemberId :: a } deriving Show
+makeAdaptorAndInstance "pMemberId" ''MemberId'
+
+type MemberId = MemberId' Int64
+type MemberIdColumn = MemberId' (Column PGInt8)
+type MemberIdColumnMaybe = MemberId' (Maybe (Column PGInt8))
+
+
+--History Version----------------------------------------------------------------
+
+data HistoryVersionId' a = HistoryVersionId { unHistoryVersionId :: a }
+                         deriving (Show)
+makeAdaptorAndInstance "pHistoryVersionId" ''HistoryVersionId'
+
+type HistoryVersionId = HistoryVersionId' Int
+type HistoryVersionIdColumn = HistoryVersionId' (Column PGInt4)
+type HistoryVersionIdColumnMaybe = HistoryVersionId' (Maybe (Column PGInt4))
+
 
 --Price History------------------------------------------------------------------
 
