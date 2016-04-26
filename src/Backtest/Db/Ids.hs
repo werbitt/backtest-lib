@@ -24,11 +24,11 @@ module Backtest.Db.Ids
        , PriceHistoryIdColumn
        , PriceHistoryIdColumnMaybe
        , pHistoryVersionId
-       , BacktestMetaId'(..)
-       , pBacktestMetaId
-       , BacktestMetaId
-       , BacktestMetaIdColumn
-       , BacktestMetaIdColumnMaybe
+       , BacktestId'(..)
+       , pBacktestId
+       , BacktestId
+       , BacktestIdColumn
+       , BacktestIdColumnMaybe
        , HoldingId'(..)
        , pHoldingId
        , HoldingId
@@ -83,14 +83,14 @@ type PriceHistoryIdColumn = PriceHistoryId' (Column PGInt4)
 type PriceHistoryIdColumnMaybe = PriceHistoryId' (Maybe (Column PGInt4))
 
 
---Backtest Meta------------------------------------------------------------------
+--Backtest-----------------------------------------------------------------------
 
-data BacktestMetaId' a = BacktestMetaId { unBacktestMetaId :: a } deriving Show
-makeAdaptorAndInstance "pBacktestMetaId" ''BacktestMetaId'
+data BacktestId' a = BacktestId { unBacktestId :: a } deriving Show
+makeAdaptorAndInstance "pBacktestId" ''BacktestId'
 
-type BacktestMetaId = BacktestMetaId' Int
-type BacktestMetaIdColumn = BacktestMetaId' (Column PGInt4)
-type BacktestMetaIdColumnMaybe = BacktestMetaId' (Maybe (Column PGInt4))
+type BacktestId = BacktestId' Int
+type BacktestIdColumn = BacktestId' (Column PGInt4)
+type BacktestIdColumnMaybe = BacktestId' (Maybe (Column PGInt4))
 
 
 --Holding------------------------------------------------------------------------

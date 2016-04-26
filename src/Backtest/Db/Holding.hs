@@ -14,12 +14,11 @@ module Backtest.Db.Holding
        , holdingTable
        ) where
 
-import           Backtest.Db.Ids            (BacktestMetaId,
-                                             BacktestMetaId' (..),
-                                             BacktestMetaIdColumn, HoldingId,
+import           Backtest.Db.Ids            (BacktestId, BacktestId' (..),
+                                             BacktestIdColumn, HoldingId,
                                              HoldingId' (..), HoldingIdColumn,
-                                             HoldingIdColumnMaybe,
-                                             pBacktestMetaId, pHoldingId)
+                                             HoldingIdColumnMaybe, pBacktestId,
+                                             pHoldingId)
 import           Backtest.Types             (Asset)
 import           Control.Lens               (makeLenses)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
@@ -39,22 +38,22 @@ makeLenses ''Holding'
 makeAdaptorAndInstance "pHolding" ''Holding'
 
 type HoldingColumns = Holding' HoldingIdColumn
-                               BacktestMetaIdColumn
+                               BacktestIdColumn
                                (Column PGDate)
                                (Column PGText)
                                (Column PGFloat8)
 type HoldingInsertColumns = Holding' HoldingIdColumnMaybe
-                                     BacktestMetaIdColumn
+                                     BacktestIdColumn
                                      (Column PGDate)
                                      (Column PGText)
                                      (Column PGFloat8)
 
-type Holding = Holding' HoldingId BacktestMetaId Day Asset Double
+type Holding = Holding' HoldingId BacktestId Day Asset Double
 
 holdingTable :: Table HoldingInsertColumns HoldingColumns
 holdingTable = Table "holdings" $ pHolding Holding
   { _holdingId = pHoldingId . HoldingId $ optional "id"
-  , _holdingBacktestId = pBacktestMetaId . BacktestMetaId $ required "backtest_id"
+  , _holdingBacktestId = pBacktestId . BacktestId $ required "backtest_id"
   , _holdingDt = required "dt"
   , _holdingAsset = required "asset"
   , _holdingVal = required "val"

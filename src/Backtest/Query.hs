@@ -14,14 +14,13 @@ module Backtest.Query
        , membersForDay
        ) where
 
-import           Backtest.Db.BacktestMeta   (BacktestMeta' (..),
-                                             BacktestMetaCreatedAt' (..),
-                                             backtestMetaId, backtestMetaTable)
+import           Backtest.Db.Backtest       (Backtest' (..),
+                                             BacktestCreatedAt' (..),
+                                             backtestId, backtestTable)
 import           Backtest.Db.HistoryVersion (historyVersionId,
                                              historyVersionQuery)
 import           Backtest.Db.Holding        (Holding' (..), holdingTable)
-import           Backtest.Db.Ids            (BacktestMetaId,
-                                             BacktestMetaId' (..),
+import           Backtest.Db.Ids            (BacktestId, BacktestId' (..),
                                              HistoryVersionId,
                                              HistoryVersionId' (..),
                                              HistoryVersionIdColumn,
@@ -156,23 +155,23 @@ saveBacktestMeta :: PGS.Connection
                  -> Text
                  -> Text
                  -> HistoryVersionId
-                 -> IO BacktestMetaId
+                 -> IO BacktestId
 saveBacktestMeta c sd sv frq wgt v =  head <$>
-  runInsertReturning c backtestMetaTable BacktestMeta
-  { _backtestMetaId = BacktestMetaId Nothing
-  , _backtestMetaStartDt = constant sd
-  , _backtestMetaStartValue = constant sv
-  , _backtestMetaFrequency = constant frq
-  , _backtestMetaWeighting = constant wgt
-  , _backtestMetaCreatedAt = BacktestMetaCreatedAt Nothing
-  , _backtestMetaHistoryVersion = constant v
-  } (^.backtestMetaId)
+  runInsertReturning c backtestTable Backtest
+  { _backtestId = BacktestId Nothing
+  , _backtestStartDt = constant sd
+  , _backtestStartValue = constant sv
+  , _backtestFrequency = constant frq
+  , _backtestWeighting = constant wgt
+  , _backtestCreatedAt = BacktestCreatedAt Nothing
+  , _backtestHistoryVersion = constant v
+  } (^.backtestId)
 
 
 --Holdings-----------------------------------------------------------------------
 
 saveHoldings :: PGS.Connection
-             -> BacktestMetaId
+             -> BacktestId
              -> Day
              -> [(Asset, Double)]
              -> IO Int64
