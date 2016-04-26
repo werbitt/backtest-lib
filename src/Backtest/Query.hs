@@ -91,8 +91,8 @@ restrictTickers ts = proc t ->
 
 lastHistoryVersionQuery :: Query HistoryVersionIdColumn
 lastHistoryVersionQuery =  HistoryVersionId <$>
-  (aggregate max
-   ((^.historyVersionId.to unHistoryVersionId) <$> historyVersionQuery))
+  aggregate max
+   ((^.historyVersionId.to unHistoryVersionId) <$> historyVersionQuery)
 
 
 lastHistoryVersion :: PGS.Connection -> IO Int
