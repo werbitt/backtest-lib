@@ -13,7 +13,6 @@ module Backtest.Query
        , runReturnQuery
        , saveBacktestMeta
        , saveHoldings
-       , BacktestMetaId
        , membersForDay
        , priceHistoryQuery
        , priceHistoryDt
@@ -21,11 +20,17 @@ module Backtest.Query
        --, priceHistoryClosePx
        ) where
 
+import           Backtest.Db.BacktestMeta   (BacktestMeta' (..),
+                                             BacktestMetaCreatedAt' (..),
+                                             backtestMetaId, backtestMetaTable)
 import           Backtest.Db.HistoryVersion (HistoryVersion' (..),
                                              historyVersionId,
                                              historyVersionQuery,
                                              pHistoryVersion)
-import           Backtest.Db.Ids            (HistoryVersionId,
+import           Backtest.Db.Ids            (BacktestMetaId,
+                                             BacktestMetaId' (..),
+                                             BacktestMetaIdColumn,
+                                             HistoryVersionId,
                                              HistoryVersionId' (..),
                                              HistoryVersionIdColumn,
                                              PriceHistoryId,
@@ -33,8 +38,8 @@ import           Backtest.Db.Ids            (HistoryVersionId,
                                              PriceHistoryIdColumn,
                                              PriceHistoryIdColumnMaybe,
                                              SecurityId, SecurityId' (..),
-                                             SecurityIdColumn, pPriceHistoryId,
-                                             pSecurityId)
+                                             SecurityIdColumn, pBacktestMetaId,
+                                             pPriceHistoryId, pSecurityId)
 import           Backtest.Db.Member         (memberDt, memberQuery,
                                              memberSecurityId, memberUniverse)
 import           Backtest.Db.PriceHistory   (priceHistoryDt,
@@ -160,66 +165,16 @@ runMembersQuery :: PGS.Connection -> Text -> Day -> IO [SecurityId]
 runMembersQuery conn u d = runQuery conn (membersForDay u d) :: IO [SecurityId]
 
 
--- |
--- = Backtest Meta
-data BacktestMetaId' a = BacktestMetaId { unBacktestMetaId :: a } deriving Show
-makeAdaptorAndInstance "pBacktestMetaId" ''BacktestMetaId'
-type BacktestMetaId = BacktestMetaId' Int
-type BacktestMetaIdColumn = BacktestMetaId' (Column PGInt4)
-type BacktestMetaIdColumnMaybe = BacktestMetaId' (Maybe (Column PGInt4))
-type BacktestMetaIdColumnNullable = BacktestMetaId' (Column (Nullable PGInt4))
 
-data BacktestMetaCreatedAt' a
-  = BacktestMetaCreatedAt { unBacktestMetaCreatedAt :: a } deriving Show
-makeAdaptorAndInstance "pBacktestMetaCreatedAt" ''BacktestMetaCreatedAt'
-type BacktestMetaCreatedAt = BacktestMetaCreatedAt' UTCTime
-type BacktestMetaCreatedAtColumn = BacktestMetaCreatedAt' (Column PGTimestamptz)
-type BacktestMetaCreatedAtColumnMaybe = BacktestMetaCreatedAt' (Maybe (Column PGTimestamptz))
+--Backtest Meta------------------------------------------------------------------
 
-data BacktestMeta' a b c d e f g = BacktestMeta { _backtestMetaId             :: a
-                                                , _backtestMetaStartDt        :: b
-                                                , _backtestMetaStartValue     :: c
-                                                , _backtestMetaFrequency      :: d
-                                                , _backtestMetaWeighting      :: e
-                                                , _backtestMetaCreatedAt      :: f
-                                                , _backtestMetaHistoryVersion :: g
-                                                }
-makeLenses ''BacktestMeta'
-makeAdaptorAndInstance "pBacktestMeta" ''BacktestMeta'
-
-type BacktestMetaColumns = BacktestMeta' BacktestMetaIdColumn
-                                         (Column PGDate)
-                                         (Column PGFloat8) -- Change to numeric
-                                         (Column PGText)
-                                         (Column PGText)
-                                         BacktestMetaCreatedAtColumn
-                                         (Column PGInt4)
-
-type BacktestMetaInsertColumns = BacktestMeta' BacktestMetaIdColumnMaybe
-                                               (Column PGDate)
-                                               (Column PGFloat8)
-                                               (Column PGText)
-                                               (Column PGText)
-                                               BacktestMetaCreatedAtColumnMaybe
-                                               (Column PGInt4)
-type BacktestMeta
-  = BacktestMeta' BacktestMetaId Day Double String String UTCTime Int
-
-backtestMetaTable :: Table BacktestMetaInsertColumns BacktestMetaColumns
-backtestMetaTable = Table "backtest_meta" $ pBacktestMeta BacktestMeta
-  { _backtestMetaId = pBacktestMetaId . BacktestMetaId $ optional "id"
-  , _backtestMetaStartDt = required "start_dt"
-  , _backtestMetaStartValue = required "start_value"
-  , _backtestMetaFrequency = required "frequency"
-  , _backtestMetaWeighting = required "weighting"
-  , _backtestMetaCreatedAt = pBacktestMetaCreatedAt . BacktestMetaCreatedAt $ optional "created_at"
-  , _backtestMetaHistoryVersion = required "history_version"
-  }
-
-backtestMetaQuery :: Query BacktestMetaColumns
-backtestMetaQuery = queryTable backtestMetaTable
-
-saveBacktestMeta :: PGS.Connection -> Day -> Double -> String -> String -> Int -> IO BacktestMetaId
+saveBacktestMeta :: PGS.Connection
+                 -> Day
+                 -> Double
+                 -> Text
+                 -> Text
+                 -> HistoryVersionId
+                 -> IO BacktestMetaId
 saveBacktestMeta c sd sv frq wgt v =  head <$>
   runInsertReturning c backtestMetaTable BacktestMeta
   { _backtestMetaId = BacktestMetaId Nothing
@@ -230,6 +185,7 @@ saveBacktestMeta c sd sv frq wgt v =  head <$>
   , _backtestMetaCreatedAt = BacktestMetaCreatedAt Nothing
   , _backtestMetaHistoryVersion = constant v
   } (^.backtestMetaId)
+
 
 -- |
 -- = Holdings

@@ -24,6 +24,11 @@ module Backtest.Db.Ids
        , PriceHistoryIdColumn
        , PriceHistoryIdColumnMaybe
        , pHistoryVersionId
+       , BacktestMetaId'(..)
+       , pBacktestMetaId
+       , BacktestMetaId
+       , BacktestMetaIdColumn
+       , BacktestMetaIdColumnMaybe
        ) where
 
 import           Data.Int                   (Int64)
@@ -71,3 +76,13 @@ makeAdaptorAndInstance "pPriceHistoryId" ''PriceHistoryId'
 type PriceHistoryId = PriceHistoryId' Int
 type PriceHistoryIdColumn = PriceHistoryId' (Column PGInt4)
 type PriceHistoryIdColumnMaybe = PriceHistoryId' (Maybe (Column PGInt4))
+
+
+--Backtest Meta------------------------------------------------------------------
+
+data BacktestMetaId' a = BacktestMetaId { unBacktestMetaId :: a } deriving Show
+makeAdaptorAndInstance "pBacktestMetaId" ''BacktestMetaId'
+
+type BacktestMetaId = BacktestMetaId' Int
+type BacktestMetaIdColumn = BacktestMetaId' (Column PGInt4)
+type BacktestMetaIdColumnMaybe = BacktestMetaId' (Maybe (Column PGInt4))
