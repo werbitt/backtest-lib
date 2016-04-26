@@ -3,8 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Backtest.Query
-       (
-         lastHistoryVersion
+       ( lastHistoryVersion
        , connection
        , tradingDays
        , universe
@@ -13,10 +12,6 @@ module Backtest.Query
        , saveBacktestMeta
        , saveHoldings
        , membersForDay
-       , priceHistoryQuery
-       , priceHistoryDt
-       --, priceHistoryVolume
-       --, priceHistoryClosePx
        ) where
 
 import           Backtest.Db.BacktestMeta   (BacktestMeta' (..),
