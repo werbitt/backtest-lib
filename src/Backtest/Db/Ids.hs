@@ -3,7 +3,11 @@
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Backtest.Db.Ids
-       ( SecurityId' (..)
+       ( HistoryVersionId'(..)
+       , HistoryVersionId
+       , HistoryVersionIdColumn
+       , HistoryVersionIdColumnMaybe
+       , SecurityId' (..)
        , pSecurityId
        , SecurityId
        , SecurityIdColumn
@@ -14,11 +18,22 @@ module Backtest.Db.Ids
        , PriceHistoryId
        , PriceHistoryIdColumn
        , PriceHistoryIdColumnMaybe
-
+       , pHistoryVersionId
        ) where
 
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Opaleye                    (Column, PGInt4)
+
+--History Version----------------------------------------------------------------
+
+data HistoryVersionId' a = HistoryVersionId { unHistoryVersionId :: a }
+                         deriving (Show)
+makeAdaptorAndInstance "pHistoryVersionId" ''HistoryVersionId'
+
+type HistoryVersionId = HistoryVersionId' Int
+type HistoryVersionIdColumn = HistoryVersionId' (Column PGInt4)
+type HistoryVersionIdColumnMaybe = HistoryVersionId' (Maybe (Column PGInt4))
+
 
 --Security-----------------------------------------------------------------------
 

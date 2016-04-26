@@ -21,7 +21,14 @@ module Backtest.Query
        --, priceHistoryClosePx
        ) where
 
-import           Backtest.Db.Ids            (PriceHistoryId,
+import           Backtest.Db.HistoryVersion (HistoryVersion' (..),
+                                             historyVersionId,
+                                             historyVersionQuery,
+                                             pHistoryVersion)
+import           Backtest.Db.Ids            (HistoryVersionId,
+                                             HistoryVersionId' (..),
+                                             HistoryVersionIdColumn,
+                                             PriceHistoryId,
                                              PriceHistoryId' (..),
                                              PriceHistoryIdColumn,
                                              PriceHistoryIdColumnMaybe,
@@ -81,37 +88,18 @@ restrictTickers ts = proc t ->
   restrict -< in_ (constant <$> ts) t
 
 
--- |
--- = History Version
---
--- This is used because we don't have a prope security master.
--- This way we can can have different security data associated with
--- different backtests.
+--History Version----------------------------------------------------------------
 
-data HistoryVersion' a = HistoryVersion { _version :: a } deriving Show
+lastHistoryVersionQuery :: Query HistoryVersionIdColumn
+lastHistoryVersionQuery =  HistoryVersionId <$>
+  (aggregate max
+   ((^.historyVersionId.to unHistoryVersionId) <$> historyVersionQuery))
 
-type HistoryVersion = HistoryVersion' Int
-type HistoryVersionColumn = HistoryVersion' (Column PGInt4)
-
-$(makeAdaptorAndInstance "pHistoryVersion" ''HistoryVersion')
-
-historyVersionTable :: Table HistoryVersionColumn HistoryVersionColumn
-historyVersionTable = Table "history_version"
-  (pHistoryVersion HistoryVersion { _version = required "id" })
-
-historyVersionQuery :: Query HistoryVersionColumn
-historyVersionQuery = queryTable historyVersionTable
-
-lastHistoryVersionQuery :: Query HistoryVersionColumn
-lastHistoryVersionQuery = aggregate
-  (pHistoryVersion HistoryVersion { _version = max })
-  historyVersionQuery
 
 lastHistoryVersion :: PGS.Connection -> IO Int
 lastHistoryVersion conn = do
-   result <- runQuery conn lastHistoryVersionQuery :: IO [HistoryVersion]
-   return $ _version . head $ result
-
+   result <- runQuery conn lastHistoryVersionQuery :: IO [HistoryVersionId]
+   return $ unHistoryVersionId . head $ result
 
 
 --Return-------------------------------------------------------------------------
