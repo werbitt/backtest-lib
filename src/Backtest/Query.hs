@@ -1,7 +1,6 @@
 {-# LANGUAGE Arrows                #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
 
 module Backtest.Query
        (
@@ -25,14 +24,14 @@ import           Backtest.Db.BacktestMeta   (BacktestMeta' (..),
                                              backtestMetaId, backtestMetaTable)
 import           Backtest.Db.HistoryVersion (historyVersionId,
                                              historyVersionQuery)
+import           Backtest.Db.Holding        (Holding' (..), holdingTable)
 import           Backtest.Db.Ids            (BacktestMetaId,
                                              BacktestMetaId' (..),
-                                             BacktestMetaIdColumn,
                                              HistoryVersionId,
                                              HistoryVersionId' (..),
-                                             HistoryVersionIdColumn, SecurityId,
-                                             SecurityId' (..), SecurityIdColumn,
-                                             pBacktestMetaId)
+                                             HistoryVersionIdColumn,
+                                             HoldingId' (..), SecurityId,
+                                             SecurityId' (..), SecurityIdColumn)
 import           Backtest.Db.Member         (memberDt, memberQuery,
                                              memberSecurityId, memberUniverse)
 import           Backtest.Db.PriceHistory   (priceHistoryDt,
@@ -42,22 +41,18 @@ import           Backtest.Db.PriceHistory   (priceHistoryDt,
                                              priceHistoryTotalReturnIndex)
 import           Backtest.Types             (Asset, Ticker)
 import           Control.Arrow              (returnA)
-import           Control.Lens               (makeLenses, to, (^.), _1)
+import           Control.Lens               (to, (^.), _1)
 import           Data.Int                   (Int64)
 import qualified Data.Map.Strict            as M
-import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.Text                  (Text)
 import           Data.Time                  (Day)
 import qualified Database.PostgreSQL.Simple as PGS
-import           Opaleye                    (Column, Nullable, Query, QueryArr,
-                                             Table (..), aggregate, asc,
-                                             constant, desc, distinct, in_,
-                                             limit, max, optional, orderBy,
-                                             queryTable, required, restrict,
+import           Opaleye                    (Column, Query, QueryArr, aggregate,
+                                             asc, constant, desc, distinct, in_,
+                                             limit, max, orderBy, restrict,
                                              (./=), (.<=), (.==), (.>=))
 import           Opaleye.Manipulation       (runInsertMany, runInsertReturning)
-import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGInt8,
-                                             PGText)
+import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGText)
 import           Opaleye.RunQuery           (runQuery)
 import           Prelude                    hiding (max)
 
@@ -179,50 +174,13 @@ saveBacktestMeta c sd sv frq wgt v =  head <$>
   } (^.backtestMetaId)
 
 
--- |
--- = Holdings
-data HoldingId' a = HoldingId { unHoldingId :: a } deriving Show
-$(makeAdaptorAndInstance "pHoldingId" ''HoldingId')
-type HoldingId = HoldingId' Int64
-type HoldingIdColumn = HoldingId' (Column PGInt8)
-type HoldingIdColumnMaybe = HoldingId' (Maybe (Column PGInt8))
-type HoldingIdColumnNullable = HoldingId' (Column (Nullable PGInt8))
+--Holdings-----------------------------------------------------------------------
 
-data Holding' a b c d e = Holding { _holdingId         :: a
-                                  , _holdingBacktestId :: b
-                                  , _holdingDt         :: c
-                                  , _holdingAsset      :: d
-                                  , _holdingVal        :: e
-                                  }
-makeLenses ''Holding'
-
-makeAdaptorAndInstance "pHolding" ''Holding'
-
-type HoldingColumns = Holding' HoldingIdColumn
-                               BacktestMetaIdColumn
-                               (Column PGDate)
-                               (Column PGText)
-                               (Column PGFloat8)
-type HoldingInsertColumns = Holding' HoldingIdColumnMaybe
-                                     BacktestMetaIdColumn
-                                     (Column PGDate)
-                                     (Column PGText)
-                                     (Column PGFloat8)
-type Holding = Holding' HoldingId BacktestMetaId Day Asset Double
-
-holdingTable :: Table HoldingInsertColumns HoldingColumns
-holdingTable = Table "holdings" $ pHolding Holding
-  { _holdingId = pHoldingId . HoldingId $ optional "id"
-  , _holdingBacktestId = pBacktestMetaId . BacktestMetaId $ required "backtest_id"
-  , _holdingDt = required "dt"
-  , _holdingAsset = required "asset"
-  , _holdingVal = required "val"
-  }
-
-holdingQuery :: Query HoldingColumns
-holdingQuery = queryTable holdingTable
-
-saveHoldings :: PGS.Connection -> BacktestMetaId -> Day -> [(Asset, Double)] -> IO Int64
+saveHoldings :: PGS.Connection
+             -> BacktestMetaId
+             -> Day
+             -> [(Asset, Double)]
+             -> IO Int64
 saveHoldings c bId d hs = runInsertMany c holdingTable holdings
   where
     holdings = flip map hs $ \(a, v) ->
@@ -232,12 +190,6 @@ saveHoldings c bId d hs = runInsertMany c holdingTable holdings
               , _holdingAsset = constant a
               , _holdingVal = constant v
               }
-
--- holdingAll :: CanOpaleye c e m => m [holding]
--- holdingAll = liftQuery holdingQuery
-
-
-
 
 -- |
 -- = ## Universe
@@ -249,8 +201,6 @@ universeQuery u d = proc () -> do
   restrict -< m^.memberUniverse .== constant u
   restrictDay d -< m^.memberDt
   returnA -< m^.memberSecurityId
-
---skewOfTicker :: QueryArr (Column Ticker) (Column Double)
 
 universe :: PGS.Connection -> Text -> Day -> IO [SecurityId]
 universe conn u d = runQuery conn (universeQuery u d) :: IO [SecurityId]

@@ -29,6 +29,11 @@ module Backtest.Db.Ids
        , BacktestMetaId
        , BacktestMetaIdColumn
        , BacktestMetaIdColumnMaybe
+       , HoldingId'(..)
+       , pHoldingId
+       , HoldingId
+       , HoldingIdColumn
+       , HoldingIdColumnMaybe
        ) where
 
 import           Data.Int                   (Int64)
@@ -86,3 +91,13 @@ makeAdaptorAndInstance "pBacktestMetaId" ''BacktestMetaId'
 type BacktestMetaId = BacktestMetaId' Int
 type BacktestMetaIdColumn = BacktestMetaId' (Column PGInt4)
 type BacktestMetaIdColumnMaybe = BacktestMetaId' (Maybe (Column PGInt4))
+
+
+--Holding------------------------------------------------------------------------
+
+data HoldingId' a = HoldingId { unHoldingId :: a } deriving Show
+makeAdaptorAndInstance "pHoldingId" ''HoldingId'
+
+type HoldingId = HoldingId' Int64
+type HoldingIdColumn = HoldingId' (Column PGInt8)
+type HoldingIdColumnMaybe = HoldingId' (Maybe (Column PGInt8))
