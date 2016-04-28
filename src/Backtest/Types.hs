@@ -70,7 +70,7 @@ module Backtest.Types
        , Constraint
        , FullConstraint
        , WeightConstraint
-       , WeightConstraint'
+       , NotionalConstraint
        , mkConstraints
        , Constrain (..)
          -- * Rebalance Frequency
@@ -230,23 +230,21 @@ makeLenses ''Strategy
 ------------------------------------------------------------------------
 -- | Constraints
 ------------------------------------------------------------------------
-data Constrain = Include | Exclude deriving (Eq)
+data Constrain = Include | Exclude deriving (Eq, Show)
 type Constraint a b = a -> b
 type FullConstraint a = Constraint a Constrain
-type WeightConstraint a = Constraint (Double, a) Double
-type WeightConstraint' a = Double -> a -> Double
 
 data Constraints a = Constraints { _global :: [FullConstraint a]
                                  , _short  :: [FullConstraint a]
                                  , _long   :: [FullConstraint a]
-                                 , _volume :: [WeightConstraint' a]}
+                                 , _volume :: [NotionalConstraint a] }
 
 makeLenses ''Constraints
 
 mkConstraints :: [FullConstraint a]
               -> [FullConstraint a]
               -> [FullConstraint a]
-              -> [WeightConstraint' a]
+              -> [NotionalConstraint a]
               -> Constraints a
 mkConstraints = Constraints
 

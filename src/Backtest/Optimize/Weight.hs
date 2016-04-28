@@ -6,10 +6,11 @@ module Backtest.Optimize.Weight
          mkWeights
        ) where
 
-import           Backtest.Types (Weight, WeightConstraint, WeightConstraint')
+import           Backtest.Types (NotionalConstraint, Weight, WeightConstraint)
+
 import           Control.Lens   (makeLenses, (&), (+~), (.~), (^.), _1)
 import           Data.List      (sortBy, sortOn)
-
+import           Data.Maybe     (catMaybes)
 
 data WithWeight a = WithWeight { _wwAsset     :: a
                                , _wwWeight    :: Weight
@@ -19,28 +20,36 @@ data WithWeight a = WithWeight { _wwAsset     :: a
 makeLenses ''WithWeight
 
 mkWeights
-  :: [WeightConstraint' a]
+  :: [WeightConstraint a]
+  -> [NotionalConstraint a]
   -> Double                    -- market value
   -> Int                       -- target number of names
   -> Weight                    -- total target weight
   -> [a]
   -> [(a, Weight)]
-mkWeights cts mv n totWgt xs
+mkWeights wc nc mv n totWgt xs
   = let tgtWgt = totWgt / fromIntegral n
-        withMax = map (applyWeightWithConstraints cts mv tgtWgt) xs
-    in map (\x -> (x^.wwAsset, x^.wwWeight)) $ takeWeight totWgt withMax
+        wws = map (notionalConstraints mv nc . weightConstraints wc . targetWeight tgtWgt) xs
+    in map (\x -> (x^.wwAsset, x^.wwWeight)) $ takeWeight totWgt wws
+
+targetWeight :: Weight -> a -> WithWeight a
+targetWeight w a = WithWeight a w Nothing
+
+weightConstraints :: [WeightConstraint a] -> WithWeight a -> WithWeight a
+weightConstraints wcs x =
+  let maxWgt' = minimum' $ wcs <*> [x^.wwAsset]
+      maxWgt = minimum' . catMaybes $ [maxWgt', x^.wwMaxWeight]
+      wgt = maybe (x^.wwWeight) (min (x^.wwWeight)) maxWgt
+  in x & wwWeight .~ wgt & wwMaxWeight .~ maxWgt
 
 
--- | applyWeightConstraints takes a list of constraints, a target weight and
--- a list of assets with data. The target weight is the weight we want for
--- each asset. The "asset with data" must contain all data necessary for the
--- constraints with the appropriate type classes.
-applyWeightWithConstraints :: [WeightConstraint' a] -> Double -> Weight -> a -> WithWeight a
-applyWeightWithConstraints cts mv tgtWgt x = let maxWgt = minimum' (cts <*> [mv] <*> [x])
-                                                 wgt = maybe tgtWgt (min tgtWgt) maxWgt
-                                             in WithWeight { _wwAsset = x
-                                                           , _wwWeight = wgt
-                                                           , _wwMaxWeight = maxWgt }
+notionalConstraints
+  ::  Double -> [NotionalConstraint a] -> WithWeight a -> WithWeight a
+notionalConstraints mv ncs x =
+  let maxNotional = minimum' $ ncs <*> [x^.wwAsset]
+      maxWgt = minimum' . catMaybes $ [(/ mv) <$> maxNotional, x^.wwMaxWeight]
+      wgt = maybe (x^.wwWeight) (min (x^.wwWeight)) maxWgt
+  in x & wwWeight .~ wgt & wwMaxWeight .~ maxWgt
 
 
 -- | takeWeight takes a total target weight and list of weighted assets and
@@ -97,7 +106,7 @@ compareByRoom x@(WithWeight _ w mw) y@(WithWeight _ w' mw') =
   let room z =  z^.wwMaxWeight >>= pure . (+ (-z^.wwWeight))
       rx = room x
       ry = room y
-      compare' Nothing   m       = GT
-      compare' m         Nothing = LT
+      compare' Nothing   _       = GT
+      compare' _         Nothing = LT
       compare' (Just m) (Just n) = compare m n
   in compare' rx ry
