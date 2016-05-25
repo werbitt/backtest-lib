@@ -18,6 +18,11 @@ module Backtest.Db.Ids
        , HistoryVersionId
        , HistoryVersionIdColumn
        , HistoryVersionIdColumnMaybe
+       , SecurityHistoryId'(..)
+       , pSecurityHistoryId
+       , SecurityHistoryId
+       , SecurityHistoryIdColumn
+       , SecurityHistoryIdColumnMaybe
        , PriceHistoryId' (..)
        , pPriceHistoryId
        , PriceHistoryId
@@ -77,6 +82,17 @@ type HistoryVersionId = HistoryVersionId' Int
 type HistoryVersionIdColumn = HistoryVersionId' (Column PGInt4)
 type HistoryVersionIdColumnMaybe = HistoryVersionId' (Maybe (Column PGInt4))
 
+
+--Security History---------------------------------------------------------------
+
+data SecurityHistoryId' a = SecurityHistoryId {unSecurityHistoryId :: a }
+                          deriving Show
+
+makeAdaptorAndInstance "pSecurityHistoryId" ''SecurityHistoryId'
+
+type SecurityHistoryId = SecurityHistoryId' Int
+type SecurityHistoryIdColumn = SecurityHistoryId' (Column PGInt4)
+type SecurityHistoryIdColumnMaybe = SecurityHistoryId' (Maybe (Column PGInt4))
 
 --Price History------------------------------------------------------------------
 
