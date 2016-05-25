@@ -5,10 +5,17 @@
 module Backtest.Db.PriceHistory
        (
          priceHistoryQuery
-       , priceHistoryHistoryVersion
+       , priceHistoryId
        , priceHistoryDt
        , priceHistorySecurityId
+       , priceHistoryOpenPx
+       , priceHistoryClosePx
+       , priceHistoryTotalReturn
        , priceHistoryTotalReturnIndex
+       , priceHistoryVolume
+       , priceHistoryBeta
+       , priceHistoryHistoryVersion
+       , unPriceHistoryBeta
        ) where
 
 import           Backtest.Db.Ids            (PriceHistoryId' (..),
