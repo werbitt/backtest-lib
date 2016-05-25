@@ -8,7 +8,8 @@ module Backtest.Db.Ids
        , SecurityId
        , SecurityIdColumn
        , SecurityIdColumnMaybe
---     , SecurityIdColumnNullable
+       , SecurityIdColumnNullable
+       , SecurityIdColumnMaybeNullable
        , MemberId' (..)
        , pMemberId
        , MemberId
@@ -48,7 +49,7 @@ module Backtest.Db.Ids
 
 import           Data.Int                   (Int64)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
-import           Opaleye                    (Column, PGInt4, PGInt8)
+import           Opaleye                    (Column, Nullable, PGInt4, PGInt8)
 
 
 --Security-----------------------------------------------------------------------
@@ -59,8 +60,8 @@ makeAdaptorAndInstance "pSecurityId" ''SecurityId'
 type SecurityId = SecurityId' Int
 type SecurityIdColumn = SecurityId' (Column PGInt4)
 type SecurityIdColumnMaybe = SecurityId' (Maybe (Column PGInt4))
---type SecurityIdColumnNullable = SecurityId' (Column (Nullable PGInt4))
-
+type SecurityIdColumnNullable = SecurityId' (Column (Nullable PGInt4))
+type SecurityIdColumnMaybeNullable = SecurityId' (Maybe (Column (Nullable PGInt4)))
 
 --Member-------------------------------------------------------------------------
 
