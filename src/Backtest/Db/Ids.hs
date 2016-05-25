@@ -114,6 +114,15 @@ type BacktestIdColumn = BacktestId' (Column PGInt4)
 type BacktestIdColumnMaybe = BacktestId' (Maybe (Column PGInt4))
 
 
+--Constraint---------------------------------------------------------------------
+
+data ConstraintId' a = ConstraintId {unConstraintId :: a } deriving Show
+makeAdaptorAndInstance "pConstraintId" ''ConstraintId'
+
+type ConstraintId = ConstraintId' Int
+type ConstraintIdColumn = ConstraintId' (Column PGInt4)
+type ConstraintIdColumnMaybe = ConstraintId' (Maybe (Column PGInt4))
+
 --Holding------------------------------------------------------------------------
 
 data HoldingId' a = HoldingId { unHoldingId :: a } deriving Show
