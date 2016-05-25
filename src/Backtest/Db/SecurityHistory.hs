@@ -3,7 +3,8 @@
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Backtest.Db.SecurityHistory
-       ( securityHistoryId
+       ( SecurityHistory
+       , securityHistoryId
        , securityHistorySecurityId
        , securityHistoryTicker
        , securityHistoryGicsSector
