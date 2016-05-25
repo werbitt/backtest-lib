@@ -1,12 +1,11 @@
-
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveFoldable             #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -23,14 +22,9 @@ module Backtest.Types
        , HasDbConfig
        , CanDb
          -- * Reader Environment
---       , Env
---       , mkEnv
        , connection
        , historyVersion
---       , params
          -- * Optimization Parameters
---       , Params
---       , mkParams
        , startDate
        , startValue
        , frequency
@@ -41,11 +35,11 @@ module Backtest.Types
        , Asset
        , mkCash
        , mkEquity
+       , getSecurityId
        , Ticker
        , GlobalId
        , mkTicker
        , unTicker
-       , getTicker
        , Value
        , Price
        , Return
@@ -78,6 +72,7 @@ module Backtest.Types
        , ordToInt
        , weekdayToInt) where
 
+import           Backtest.Db.Ids                 (HistoryVersionId, SecurityId)
 import           Control.Lens                    (lens)
 import           Control.Lens.TH                 (makeClassy, makeLenses)
 import           Control.Monad.IO.Class          (MonadIO)
@@ -157,29 +152,17 @@ deriving instance QueryRunnerColumnDefault PGText GlobalId
 instance Default Constant GlobalId (Column PGText) where
   def = Constant $ pgStrictText . unGlobalId
 
-data Asset = Cash | Equity Ticker deriving (Show, Eq, Ord)
-
-instance Default Constant Asset (Column PGText) where
-  def = Constant $ pgString . assetToString
+data Asset = Cash | Equity SecurityId deriving (Show, Eq, Ord)
 
 mkCash :: Asset
 mkCash = Cash
 
-mkEquity :: Ticker -> Asset
+mkEquity :: SecurityId -> Asset
 mkEquity = Equity
 
-getTicker :: Asset -> Maybe Ticker
-getTicker (Equity t) = Just t
-getTicker _          = Nothing
-
-assetFromString :: String -> Asset
-assetFromString "Cash" = Cash
-assetFromString s      = mkEquity (mkTicker s)
-
-assetToString :: Asset -> String
-assetToString Cash       = "Cash"
-assetToString (Equity t) = unTicker t
-
+getSecurityId :: Asset -> Maybe SecurityId
+getSecurityId (Equity sid) = Just sid
+getSecurityId _          = Nothing
 
 type Price = Double
 type Return = Double
@@ -243,8 +226,9 @@ type Constraints a = [(ConstraintHook, Constraint a, Text)]
 ------------------------------------------------------------------------
 -- | Config
 ------------------------------------------------------------------------
+
 data DbConfig = DbConfig { _connection     :: Connection
-                         , _historyVersion :: Int }
+                         , _historyVersion :: HistoryVersionId }
 makeClassy ''DbConfig
 
 
@@ -254,7 +238,7 @@ data BacktestConfig = BacktestConfig { _startDate  :: Day
                                      , _startValue :: Value
                                      , _frequency  :: Frequency
                                      , _cutoff     :: Cutoff
-                                     , _buffer     :: Buffer }
+                                     , _buffer     :: Buffer } deriving Show
 
 makeClassy ''BacktestConfig
 
