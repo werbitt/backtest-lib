@@ -6,14 +6,14 @@ module Backtest.Optimize
          optimize
        ) where
 
+import           Backtest.Constraint      (globalFilters, longFilters,
+                                           runFilters, shortFilters)
 import           Backtest.Optimize.Weight (mkWeights)
-import           Backtest.Types           (CanDb, Constrain (..), Constraints,
-                                           FullConstraint, HasAsset,
+import           Backtest.Types           (CanDb, Constraints, HasAsset,
                                            HasBacktestConfig, PortfolioW,
                                            Strategy, asset, backtestConfig,
-                                           buffer, cutoff, getData, global,
-                                           long, mkCash, mkPortfolio, rank,
-                                           short, volume)
+                                           buffer, cutoff, getData, mkCash,
+                                           mkPortfolio, rank)
 import           Control.Lens             (view, (^.))
 import           Data.Bifunctor           (bimap, first)
 import           Data.Time                (Day)
@@ -26,20 +26,13 @@ optimize :: (CanDb r m, HasAsset a,  HasBacktestConfig r)
          -> m PortfolioW
 optimize strat cts mv d = do
   allData <- (strat^.getData) d
-  let filtered = runFullConstraints (cts^.global) allData
+  let filtered = runFilters (globalFilters cts) allData
   let ranked = strat^.rank $ filtered
-  let longs = runFullConstraints (cts^.long) ranked
-  let shorts = runFullConstraints (cts^.short) (reverse ranked)
+  let longs = runFilters (longFilters cts) ranked
+  let shorts = runFilters (shortFilters cts) (reverse ranked)
   totWgt <- view (backtestConfig . buffer) >>= \b -> return $ 1 - b
   n <- view (backtestConfig.cutoff) >>= \c -> return $ floor $ c * realToFrac (length ranked)
-  let lngWgts = map (first asset) $ mkWeights (cts^.volume) mv n totWgt longs
-  let shtWgts = map (bimap asset negate) $ mkWeights (cts^.volume) mv n totWgt shorts
+  let lngWgts = map (first asset) $ mkWeights cts mv n totWgt longs
+  let shtWgts = map (bimap asset negate) $ mkWeights cts mv n totWgt shorts
   let cshWgt = 1 - (sum (map snd shtWgts) +  sum (map snd lngWgts))
   return $ mkPortfolio $ (mkCash, cshWgt) : lngWgts ++ shtWgts
-
-
-runFullConstraints :: [FullConstraint a] -> [a] -> [a]
-runFullConstraints _           []     = []
-runFullConstraints constraints (x:xs) = if all (== Include) (constraints <*> pure x)
-                                        then x : runFullConstraints constraints xs
-                                        else runFullConstraints constraints xs
