@@ -62,17 +62,10 @@ module Backtest.Types
        , getData
        , rank
          -- * Constraints
-       , Constraints (..)
-       , global
-       , long
-       , short
-       , volume
-       , Constraint
-       , FullConstraint
-       , WeightConstraint
-       , NotionalConstraint
-       , mkConstraints
-       , Constrain (..)
+       , ConstraintHook(..)
+       , Constraints
+       , Constraint (..)
+       , Filter(..)
          -- * Rebalance Frequency
        , Frequency
        , mkFrequency
@@ -230,23 +223,21 @@ makeLenses ''Strategy
 ------------------------------------------------------------------------
 -- | Constraints
 ------------------------------------------------------------------------
-data Constrain = Include | Exclude deriving (Eq, Show)
-type Constraint a b = a -> b
-type FullConstraint a = Constraint a Constrain
 
-data Constraints a = Constraints { _global :: [FullConstraint a]
-                                 , _short  :: [FullConstraint a]
-                                 , _long   :: [FullConstraint a]
-                                 , _volume :: [NotionalConstraint a] }
 
-makeLenses ''Constraints
+data Filter = Include | Exclude deriving (Eq, Show)
 
-mkConstraints :: [FullConstraint a]
-              -> [FullConstraint a]
-              -> [FullConstraint a]
-              -> [NotionalConstraint a]
-              -> Constraints a
-mkConstraints = Constraints
+data ConstraintHook = GlobalFilters
+                    | LongFilters
+                    | ShortFilters
+                    | WeightConstraints
+                    | ValueConstraints deriving (Eq, Show)
+
+data Constraint a = FilterConstraint (a -> Filter)
+                  | WeightConstraint (a -> Weight)
+                  | ValueConstraint (a -> Value)
+
+type Constraints a = [(ConstraintHook, Constraint a, Text)]
 
 
 ------------------------------------------------------------------------

@@ -10,6 +10,7 @@ module Backtest.Query
        , runMembersQuery
        , runReturnQuery
        , saveBacktestMeta
+       , saveConstraints
        , saveHoldings
        , membersForDay
        ) where
@@ -17,10 +18,12 @@ module Backtest.Query
 import           Backtest.Db.Backtest       (Backtest' (..),
                                              BacktestCreatedAt' (..),
                                              backtestId, backtestTable)
+import           Backtest.Db.Constraint     (Constraint' (..), constraintTable)
 import           Backtest.Db.HistoryVersion (historyVersionId,
                                              historyVersionQuery)
 import           Backtest.Db.Holding        (Holding' (..), holdingTable)
 import           Backtest.Db.Ids            (BacktestId, BacktestId' (..),
+                                             ConstraintId' (..),
                                              HistoryVersionId,
                                              HistoryVersionId' (..),
                                              HistoryVersionIdColumn,
@@ -166,6 +169,19 @@ saveBacktestMeta c sd sv frq wgt v =  head <$>
   , _backtestCreatedAt = BacktestCreatedAt Nothing
   , _backtestHistoryVersion = constant v
   } (^.backtestId)
+
+
+--Constraints--------------------------------------------------------------------
+
+saveConstraints :: PGS.Connection -> BacktestId -> Constraints a -> IO Int64
+saveConstraints c bId cts
+  = runInsertMany c constraintTable constraints
+  where
+    constraints = flip map cts $ \(h, _, d) ->
+      Constraint { _constraintId = ConstraintId Nothing
+                 , _constraintDesc = constant d
+                 , _constraintHook = constant h
+                 , _constraintBacktestId = constant bId }
 
 
 --Holdings-----------------------------------------------------------------------

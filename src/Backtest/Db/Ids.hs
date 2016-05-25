@@ -29,6 +29,11 @@ module Backtest.Db.Ids
        , BacktestId
        , BacktestIdColumn
        , BacktestIdColumnMaybe
+       , ConstraintId'(..)
+       , pConstraintId
+       , ConstraintId
+       , ConstraintIdColumn
+       , ConstraintIdColumnMaybe
        , HoldingId'(..)
        , pHoldingId
        , HoldingId
