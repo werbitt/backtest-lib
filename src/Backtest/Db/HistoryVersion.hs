@@ -6,6 +6,7 @@ module Backtest.Db.HistoryVersion
        (
          historyVersionId
        , historyVersionQuery
+       , historyVersionUniverse
        , pHistoryVersion
        , HistoryVersion'(..)
        ) where

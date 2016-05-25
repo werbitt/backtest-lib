@@ -6,7 +6,6 @@ module Backtest.Query
        ( lastHistoryVersion
        , connection
        , tradingDays
-       , universe
        , runMembersQuery
        , runReturnQuery
        , saveBacktestMeta
@@ -138,16 +137,16 @@ tradingDays conn v d = runQuery conn (tradingDaysQuery v d) :: IO [Day]
 
 --MembersForDay------------------------------------------------------------------
 
-membersForDay :: Text -> Day -> Query SecurityIdColumn
-membersForDay u d = proc () -> do
+membersForDay :: HistoryVersionId -> Day -> Query SecurityIdColumn
+membersForDay v d = proc () -> do
   m <- memberQuery -< ()
-  restrict -< m^.memberUniverse .== constant u
+  u <- universeQuery v -< ()
+  restrict -< m^.memberUniverse .== u
   restrictDay d -< m^.memberDt
   returnA -< m^.memberSecurityId
 
-runMembersQuery :: PGS.Connection -> Text -> Day -> IO [SecurityId]
-runMembersQuery conn u d = runQuery conn (membersForDay u d) :: IO [SecurityId]
-
+runMembersQuery :: PGS.Connection -> HistoryVersionId -> Day -> IO [SecurityId]
+runMembersQuery conn v d = runQuery conn (membersForDay v d) :: IO [SecurityId]
 
 
 --Backtest Meta------------------------------------------------------------------
