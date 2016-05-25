@@ -11,14 +11,13 @@ import           Backtest.Optimize      (optimize)
 import           Backtest.Portfolio     (empty, flow, fromWeighted,
                                          getAndApplyReturns, marketValue,
                                          toList)
-import           Backtest.Query         (BacktestMetaId, saveBacktestMeta,
-                                         saveHoldings)
+import           Backtest.Query         (BacktestId, saveBacktestMeta,
+                                         saveConstraints, saveHoldings)
 import           Backtest.Types         (CanDb, Constraints, HasAsset,
                                          HasBacktestConfig, Portfolio, Strategy,
                                          backtestConfig, connection, frequency,
-                                         historyVersion, startDate, startValue,
-                                         startValue)
-import           Control.Lens           (view, (^.))
+                                         historyVersion, startValue, startValue)
+import           Control.Lens           (view)
 import           Control.Monad          (forever)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans    (lift)
@@ -33,6 +32,7 @@ run
      Strategy m a -> Constraints a -> m ()
 run strat cts  = do
   bId <- saveBacktestMeta'
+  saveConstraints' bId cts
   runEffect $ start strat cts >-> save bId
 
 start
@@ -86,25 +86,26 @@ applyReturns
   :: CanDb r m => Day -> Day -> Portfolio -> m Portfolio
 applyReturns = getAndApplyReturns
 
-saveBacktestMeta' :: ( CanDb r m, HasBacktestConfig r ) => m BacktestMetaId
+saveBacktestMeta' :: ( CanDb r m, HasBacktestConfig r ) => m BacktestId
 saveBacktestMeta' = do
   c <- view connection
   v <- view historyVersion
   bc <- view backtestConfig
-  liftIO $ saveBacktestMeta c
-    (bc^.startDate)
-    (bc ^.startValue)
-    (show (bc^.frequency))
-    "weight?"
-    v
+  liftIO $ saveBacktestMeta c bc v
 
-save :: CanDb r m => BacktestMetaId -> Consumer (Day, Portfolio) m ()
+saveConstraints' :: ( CanDb r m ) => BacktestId -> Constraints a -> m ()
+saveConstraints' bId cts = do
+  c <- view connection
+  _ <- liftIO $ saveConstraints c bId cts
+  return ()
+
+save :: CanDb r m => BacktestId -> Consumer (Day, Portfolio) m ()
 save bId  = forever $ do
   (d, p) <- await
   saveHoldings' bId d p
 
 
-saveHoldings' :: CanDb r m => BacktestMetaId -> Day -> Portfolio ->  m ()
+saveHoldings' :: CanDb r m => BacktestId -> Day -> Portfolio ->  m ()
 saveHoldings' bId d p = do
   c <- view connection
   _ <- liftIO $ saveHoldings c bId d (toList p)

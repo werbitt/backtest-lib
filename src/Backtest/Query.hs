@@ -153,19 +153,17 @@ runMembersQuery conn u d = runQuery conn (membersForDay u d) :: IO [SecurityId]
 --Backtest Meta------------------------------------------------------------------
 
 saveBacktestMeta :: PGS.Connection
-                 -> Day
-                 -> Double
-                 -> Text
-                 -> Text
+                 -> BacktestConfig
                  -> HistoryVersionId
                  -> IO BacktestId
-saveBacktestMeta c sd sv frq wgt v =  head <$>
+saveBacktestMeta c bc v =  head <$>
   runInsertReturning c backtestTable Backtest
   { _backtestId = BacktestId Nothing
-  , _backtestStartDt = constant sd
-  , _backtestStartValue = constant sv
-  , _backtestFrequency = constant frq
-  , _backtestWeighting = constant wgt
+  , _backtestStartDt = constant $ bc^.startDate
+  , _backtestStartValue = constant $ bc^.startValue
+  , _backtestFrequency = constant . pack . show $ bc^.frequency
+  , _backtestCutoff = constant $ bc^.cutoff
+  , _backtestBuffer = constant $ bc^.buffer
   , _backtestCreatedAt = BacktestCreatedAt Nothing
   , _backtestHistoryVersion = constant v
   } (^.backtestId)
@@ -193,24 +191,26 @@ saveHoldings :: PGS.Connection
              -> IO Int64
 saveHoldings c bId d hs = runInsertMany c holdingTable holdings
   where
+    assetClass Cash = CashAsset
+    assetClass (Equity _) = EquityAsset
     holdings = flip map hs $ \(a, v) ->
       Holding { _holdingId = HoldingId Nothing
               , _holdingBacktestId = constant bId
               , _holdingDt = constant d
-              , _holdingAsset = constant a
+              , _holdingAssetClass = constant (assetClass a)
+              , _holdingSecurityId =
+                  SecurityId $ maybeToNullable $
+                  constant . unSecurityId <$> getSecurityId a
               , _holdingVal = constant v
               }
+
 
 -- |
 -- = ## Universe
 
 
-universeQuery :: Text -> Day -> Query SecurityIdColumn
-universeQuery u d = proc () -> do
-  m <- memberQuery -< ()
-  restrict -< m^.memberUniverse .== constant u
-  restrictDay d -< m^.memberDt
-  returnA -< m^.memberSecurityId
-
-universe :: PGS.Connection -> Text -> Day -> IO [SecurityId]
-universe conn u d = runQuery conn (universeQuery u d) :: IO [SecurityId]
+universeQuery :: HistoryVersionId -> Query (Column PGText)
+universeQuery v = proc () -> do
+  h <- historyVersionQuery -< ()
+  restrictHistoryVersion v -< h^.historyVersionId.to unHistoryVersionId
+  returnA -< h^.historyVersionUniverse

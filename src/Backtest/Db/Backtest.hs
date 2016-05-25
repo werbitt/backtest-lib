@@ -5,14 +5,17 @@
 module Backtest.Db.Backtest
        ( BacktestCreatedAt'(..)
        , Backtest'(..)
+       , Backtest
        , backtestId
        , backtestStartDt
        , backtestStartValue
        , backtestFrequency
-       , backtestWeighting
+       , backtestCutoff
+       , backtestBuffer
        , backtestCreatedAt
        , backtestHistoryVersion
        , backtestTable
+       , backtestQuery
        ) where
 
 import           Backtest.Db.Ids            (BacktestId, BacktestId' (..),
@@ -41,17 +44,17 @@ type BacktestCreatedAtColumn = BacktestCreatedAt' (Column PGTimestamptz)
 type BacktestCreatedAtColumnMaybe
   = BacktestCreatedAt' (Maybe (Column PGTimestamptz))
 
-
 --Backtest-----------------------------------------------------------------------
 
-data Backtest' a b c d e f g
+data Backtest' a b c d e f g h
   = Backtest { _backtestId             :: a
              , _backtestStartDt        :: b
              , _backtestStartValue     :: c
              , _backtestFrequency      :: d
-             , _backtestWeighting      :: e
-             , _backtestCreatedAt      :: f
-             , _backtestHistoryVersion :: g }
+             , _backtestCutoff         :: e
+             , _backtestBuffer         :: f
+             , _backtestCreatedAt      :: g
+             , _backtestHistoryVersion :: h }
 
 makeLenses ''Backtest'
 makeAdaptorAndInstance "pBacktest" ''Backtest'
@@ -60,7 +63,8 @@ type BacktestColumns = Backtest' BacktestIdColumn
                                  (Column PGDate)
                                  (Column PGFloat8) -- Change to numeric
                                  (Column PGText)
-                                 (Column PGText)
+                                 (Column PGFloat8)
+                                 (Column PGFloat8)
                                  BacktestCreatedAtColumn
                                  HistoryVersionIdColumn
 
@@ -68,7 +72,8 @@ type BacktestInsertColumns = Backtest' BacktestIdColumnMaybe
                                        (Column PGDate)
                                        (Column PGFloat8)
                                        (Column PGText)
-                                       (Column PGText)
+                                       (Column PGFloat8)
+                                       (Column PGFloat8)
                                        BacktestCreatedAtColumnMaybe
                                        HistoryVersionIdColumn
 type Backtest
@@ -76,7 +81,8 @@ type Backtest
               Day
               Double
               Text
-              Text
+              Double
+              Double
               BacktestCreatedAt
               HistoryVersionId
 
@@ -86,7 +92,8 @@ backtestTable = Table "backtest" $ pBacktest Backtest
   , _backtestStartDt = required "start_dt"
   , _backtestStartValue = required "start_value"
   , _backtestFrequency = required "frequency"
-  , _backtestWeighting = required "weighting"
+  , _backtestCutoff = required "cutoff"
+  , _backtestBuffer = required "buffer"
   , _backtestCreatedAt = pBacktestCreatedAt . BacktestCreatedAt $
     optional "created_at"
   , _backtestHistoryVersion = pHistoryVersionId . HistoryVersionId $
