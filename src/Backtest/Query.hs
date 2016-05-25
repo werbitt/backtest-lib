@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows                #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -12,6 +13,7 @@ module Backtest.Query
        , saveConstraints
        , saveHoldings
        , membersForDay
+       , BacktestId
        ) where
 
 import           Backtest.Db.Backtest       (Backtest' (..),
@@ -19,15 +21,19 @@ import           Backtest.Db.Backtest       (Backtest' (..),
                                              backtestId, backtestTable)
 import           Backtest.Db.Constraint     (Constraint' (..), constraintTable)
 import           Backtest.Db.HistoryVersion (historyVersionId,
-                                             historyVersionQuery)
-import           Backtest.Db.Holding        (Holding' (..), holdingTable)
+                                             historyVersionQuery,
+                                             historyVersionUniverse)
+import           Backtest.Db.Holding        (AssetClass (..), Holding' (..),
+                                             holdingTable, pgAssetClass)
 import           Backtest.Db.Ids            (BacktestId, BacktestId' (..),
                                              ConstraintId' (..),
                                              HistoryVersionId,
                                              HistoryVersionId' (..),
                                              HistoryVersionIdColumn,
                                              HoldingId' (..), SecurityId,
-                                             SecurityId' (..), SecurityIdColumn)
+                                             SecurityId' (..), SecurityIdColumn,
+                                             SecurityIdColumnNullable,
+                                             pSecurityId)
 import           Backtest.Db.Member         (memberDt, memberQuery,
                                              memberSecurityId, memberUniverse)
 import           Backtest.Db.PriceHistory   (priceHistoryDt,
@@ -35,22 +41,26 @@ import           Backtest.Db.PriceHistory   (priceHistoryDt,
                                              priceHistoryQuery,
                                              priceHistorySecurityId,
                                              priceHistoryTotalReturnIndex)
-import           Backtest.Types             (Asset, Ticker)
+import           Backtest.Types             (Asset (..), BacktestConfig,
+                                             Constraints, Ticker, buffer,
+                                             cutoff, frequency, getSecurityId,
+                                             startDate, startValue)
 import           Control.Arrow              (returnA)
 import           Control.Lens               (to, (^.), _1)
 import           Data.Int                   (Int64)
 import qualified Data.Map.Strict            as M
-import           Data.Text                  (Text)
+import           Data.Text                  (Text, pack)
 import           Data.Time                  (Day)
 import qualified Database.PostgreSQL.Simple as PGS
 import           Opaleye                    (Column, Query, QueryArr, aggregate,
                                              asc, constant, desc, distinct, in_,
-                                             limit, max, orderBy, restrict,
+                                             limit, max, maybeToNullable, null,
+                                             orderBy, restrict, toNullable,
                                              (./=), (.<=), (.==), (.>=))
 import           Opaleye.Manipulation       (runInsertMany, runInsertReturning)
 import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGText)
 import           Opaleye.RunQuery           (runQuery)
-import           Prelude                    hiding (max)
+import           Prelude                    hiding (max, null)
 
 -- |
 -- = Database Connection
@@ -65,9 +75,9 @@ connectInfo = PGS.ConnectInfo { PGS.connectHost = "localhost"
 connection :: IO PGS.Connection
 connection = PGS.connect connectInfo
 
-restrictHistoryVersion :: Int -> QueryArr (Column PGInt4) ()
+restrictHistoryVersion :: HistoryVersionId -> QueryArr (Column PGInt4) ()
 restrictHistoryVersion v = proc v' ->
-  restrict -< v' .== constant v
+  restrict -< v' .== constant (unHistoryVersionId v)
 
 restrictDay :: Day -> QueryArr (Column PGDate) ()
 restrictDay d = proc dt ->
@@ -86,16 +96,16 @@ lastHistoryVersionQuery =  HistoryVersionId <$>
    ((^.historyVersionId.to unHistoryVersionId) <$> historyVersionQuery)
 
 
-lastHistoryVersion :: PGS.Connection -> IO Int
+lastHistoryVersion :: PGS.Connection -> IO HistoryVersionId
 lastHistoryVersion conn = do
    result <- runQuery conn lastHistoryVersionQuery :: IO [HistoryVersionId]
-   return $ unHistoryVersionId . head $ result
+   return $ head result
 
 
 --Return-------------------------------------------------------------------------
 
 lastTotalReturnIndexQuery
-  :: Int -> Day -> SecurityId
+  :: HistoryVersionId -> Day -> SecurityId
   -> Query (Column PGDate, SecurityIdColumn, Column PGFloat8)
 lastTotalReturnIndexQuery v d sid
   = limit 1 $ orderBy (desc (^._1)) $  proc () -> do
@@ -106,7 +116,7 @@ lastTotalReturnIndexQuery v d sid
   restrict -< ph^.priceHistoryTotalReturnIndex ./= 0
   returnA -< (ph^.priceHistoryDt, ph^.priceHistorySecurityId, ph^.priceHistoryTotalReturnIndex)
 
-returnQuery :: Int -> Day -> Day -> SecurityId
+returnQuery :: HistoryVersionId -> Day -> Day -> SecurityId
             -> Query (SecurityIdColumn, Column PGFloat8, Column PGFloat8)
 returnQuery v sd ed sid = proc () -> do
   (_, sid', startPrice) <- lastTotalReturnIndexQuery v sd sid -< ()
@@ -114,7 +124,7 @@ returnQuery v sd ed sid = proc () -> do
   restrict -< unSecurityId sid' .== unSecurityId sid''
   returnA -< (sid', startPrice, endPrice)
 
-runReturnQuery :: PGS.Connection -> Int -> Day -> Day -> [SecurityId]
+runReturnQuery :: PGS.Connection -> HistoryVersionId -> Day -> Day -> [SecurityId]
                -> IO (M.Map SecurityId Double)
 runReturnQuery conn v sd ed sids = do
   let q sid = runQuery conn (returnQuery v sd ed sid) :: IO [(SecurityId, Double, Double)]
@@ -124,14 +134,14 @@ runReturnQuery conn v sd ed sids = do
 
 --Trading Days-------------------------------------------------------------------
 
-tradingDaysQuery :: Int -> Day -> Query (Column PGDate)
+tradingDaysQuery :: HistoryVersionId -> Day -> Query (Column PGDate)
 tradingDaysQuery v sd = orderBy (asc id) $ distinct $ proc () -> do
   ph <- priceHistoryQuery -< ()
-  restrict -< ph^.priceHistoryHistoryVersion .== constant v
+  restrict -< ph^.priceHistoryHistoryVersion .== constant (unHistoryVersionId v)
   restrict -< ph^.priceHistoryDt .>= constant sd
   returnA -< ph^.priceHistoryDt
 
-tradingDays :: PGS.Connection -> Int -> Day  -> IO [Day]
+tradingDays :: PGS.Connection -> HistoryVersionId -> Day  -> IO [Day]
 tradingDays conn v d = runQuery conn (tradingDaysQuery v d) :: IO [Day]
 
 
