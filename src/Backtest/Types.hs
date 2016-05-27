@@ -33,7 +33,7 @@ module Backtest.Types
        , buffer
        , Buffer
          -- * Assets
-       , Asset
+       , Asset(..)
        , mkCash
        , mkEquity
        , getSecurityId
