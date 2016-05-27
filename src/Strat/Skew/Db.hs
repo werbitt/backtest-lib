@@ -8,13 +8,15 @@ module Strat.Skew.Db
          runSkewQuery
        )where
 
-import           Backtest.Query             (membersForDay, priceHistoryClosePx,
+import qualified Backtest.Db.Ids            as ID
+import           Backtest.Db.PriceHistory   (priceHistoryClosePx,
                                              priceHistoryDt, priceHistoryQuery,
-                                             priceHistoryTicker,
+                                             priceHistorySecurityId,
                                              priceHistoryVolume)
+import           Backtest.Query             (membersForDay)
 import           Backtest.Types             (Ticker, mkEquity)
 import           Control.Arrow              (returnA)
-import           Control.Lens               (makeLenses, (^.))
+import           Control.Lens               (makeLenses, to, (^.))
 import           Control.Monad.IO.Class     (MonadIO, liftIO)
 import           Data.Int                   (Int64)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
@@ -28,7 +30,7 @@ import           Opaleye                    (Column, PGDate, PGFloat8, PGInt4,
 import           Strat.Skew.Types           (ImpliedVol, SkewData (..))
 
 data SkewHistory' a b c d e f = SkewHistory { _skewDt             :: a
-                                            , _skewTicker         :: b
+                                            , _skewSecurityId     :: b
                                             , _skewPut25d         :: c
                                             , _skewCall25d        :: d
                                             , _skewCall50d        :: e
@@ -38,52 +40,63 @@ makeLenses ''SkewHistory'
 makeAdaptorAndInstance "pSkewHistory" ''SkewHistory'
 
 type SkewHistoryColumns = SkewHistory' (Column PGDate)
-                                       (Column PGText)
+                                       ID.SecurityIdColumn
                                        (Column PGFloat8)
                                        (Column PGFloat8)
                                        (Column PGFloat8)
-                                       (Column PGInt4)
+                                       ID.HistoryVersionIdColumn
 
-type SkewHistory = SkewHistory' Day Ticker ImpliedVol ImpliedVol ImpliedVol Int
+type SkewHistory
+  = SkewHistory' Day
+                 ID.SecurityId
+                 ImpliedVol
+                 ImpliedVol
+                 ImpliedVol
+                 ID.HistoryVersionId
 
 skewHistoryTable :: Table SkewHistoryColumns SkewHistoryColumns
 skewHistoryTable = Table "skew_history" $ pSkewHistory SkewHistory
   { _skewDt = required "dt"
-  , _skewTicker = required "ticker"
+  , _skewSecurityId = ID.pSecurityId . ID.SecurityId $ required "security_id"
   , _skewPut25d = required "ivol_25d_put"
   , _skewCall25d = required "ivol_25d_call"
   , _skewCall50d = required "ivol_50d_call"
-  , _skewHistoryVersion = required "history_version" }
+  , _skewHistoryVersion = ID.pHistoryVersionId . ID.HistoryVersionId $
+    required "history_version" }
 
 skewHistoryQuery :: Query SkewHistoryColumns
 skewHistoryQuery = queryTable skewHistoryTable
 
-skewHistoryPriceVolumeJoin :: QueryArr SkewHistoryColumns (Column PGFloat8, Column PGInt8)
+skewHistoryPriceVolumeJoin
+  :: QueryArr SkewHistoryColumns (Column PGFloat8, Column PGInt8)
 skewHistoryPriceVolumeJoin = proc (sh) -> do
   ph <- priceHistoryQuery -< ()
-  restrict -< sh^.skewTicker .== ph^.priceHistoryTicker
+  restrict -< sh^.skewSecurityId.to ID.unSecurityId .==
+    ph^.priceHistorySecurityId.to ID.unSecurityId
   restrict -< sh^.skewDt .== ph^.priceHistoryDt
   returnA -< (ph^.priceHistoryClosePx, ph^.priceHistoryVolume)
 
 
-skewQuery :: Int -> Day -> Query ( Column PGText
-                                 , Column PGFloat8
-                                 , Column PGFloat8
-                                 , Column PGFloat8
-                                 , Column PGFloat8
-                                 , Column PGInt8)
+skewQuery :: ID.HistoryVersionId -> Day -> Query ( ID.SecurityIdColumn
+                                                 , Column PGFloat8
+                                                 , Column PGFloat8
+                                                 , Column PGFloat8
+                                                 , Column PGFloat8
+                                                 , Column PGInt8)
 skewQuery v d = proc () -> do
   sh <- skewHistoryQuery -< ()
   (px, vol) <- skewHistoryPriceVolumeJoin -< sh
   m <- membersForDay v d -< ()
   restrict -< sh^.skewDt .== constant d
-  restrict -< sh^.skewHistoryVersion .== constant v
-  restrict -< m .== sh^.skewTicker
-  returnA -< (sh^.skewTicker, sh^.skewPut25d, sh^.skewCall25d, sh^.skewCall50d, px, vol)
+  restrict -<
+    sh^.skewHistoryVersion.to ID.unHistoryVersionId .== constant (ID.unHistoryVersionId v)
+  restrict -< ID.unSecurityId m .== sh^.skewSecurityId.to ID.unSecurityId
+  returnA -< (sh^.skewSecurityId, sh^.skewPut25d, sh^.skewCall25d, sh^.skewCall50d, px, vol)
 
-runSkewQuery ::  MonadIO m => PGS.Connection -> Int -> Day -> m [SkewData]
+runSkewQuery ::  MonadIO m => PGS.Connection -> ID.HistoryVersionId -> Day -> m [SkewData]
 runSkewQuery c v d = do
   results <- liftIO
-    (runQuery c (skewQuery v d) :: IO [(Ticker, ImpliedVol, ImpliedVol, ImpliedVol, Double, Int64)])
+    (runQuery c (skewQuery v d)
+     :: IO [(ID.SecurityId, ImpliedVol, ImpliedVol, ImpliedVol, Double, Int64)])
   return $ (\(t, p25d, c25d, c50d, px, vol) ->
              SkewData (mkEquity t) ((p25d - c25d) / c50d) (px * fromIntegral vol)) <$> results
