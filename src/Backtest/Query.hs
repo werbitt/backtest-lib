@@ -70,7 +70,7 @@ connectInfo = PGS.ConnectInfo { PGS.connectHost = "localhost"
                               , PGS.connectPort = 5432
                               , PGS.connectUser = "backtest"
                               , PGS.connectPassword = ""
-                              , PGS.connectDatabase = "micah" }
+                              , PGS.connectDatabase = "backtest" }
 
 connection :: IO PGS.Connection
 connection = PGS.connect connectInfo
