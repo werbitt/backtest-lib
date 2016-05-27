@@ -7,11 +7,10 @@ module Strat.Skew where
 
 
 import           Backtest.Backtest      (run)
-import           Backtest.Constraint    (HasVolume, mkVolumeConstraint')
+import           Backtest.Constraint    (HasVolume, addVolumeConstraint)
 import           Backtest.Example       (run')
 import           Backtest.Types         (CanDb, Constraints, Strategy (..),
-                                         connection, historyVersion,
-                                         mkConstraints)
+                                         connection, historyVersion)
 import           Control.Lens           (view, (^.))
 import           Control.Monad.IO.Class (liftIO)
 import           Data.List              (sortOn)
@@ -35,7 +34,7 @@ rankSkews :: [SkewData] -> [SkewData]
 rankSkews = sortOn (Down . (^.skewDataSkew))
 
 constraints :: HasVolume a => Constraints a
-constraints = mkConstraints [] [] [] [mkVolumeConstraint' 0.3]
+constraints = addVolumeConstraint 0.3 []
 
 go :: IO ()
 go = run' $ run skew constraints
