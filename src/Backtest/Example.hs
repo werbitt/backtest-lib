@@ -1,56 +1,84 @@
+{-# LANGUAGE Arrows                #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 module Backtest.Example
        (run') where
 
-import qualified Backtest.Backtest    as B
-import           Backtest.Optimize    (optimize)
-import qualified Backtest.Query       as Q
-import           Backtest.Types       (AppConfig (..), Asset, Backtest,
-                                       BacktestConfig (..), CanDb,
-                                       Constrain (..), Constraints (..),
-                                       DbConfig (..), FullConstraint, HasAsset,
-                                       HasBacktestConfig, Ordinal (..),
-                                       PortfolioW, Strategy (..), Weekday (..),
-                                       asset, connection, getTicker,
-                                       historyVersion, mkConstraints, mkEquity,
-                                       mkFrequency, unBacktest, unTicker)
-import           Control.Lens         (view)
-import           Control.Monad.Logger (runStdoutLoggingT)
-import           Control.Monad.Reader (runReaderT)
-import           Control.Monad.Trans  (liftIO)
-import           Data.Char            (toLower)
-import           Data.List            (sortBy)
-import           Data.Time            (Day, fromGregorian)
+import qualified Backtest.Backtest          as B
+import           Backtest.Constraint        (addGlobalFilter, addShortFilter)
+import qualified Backtest.Db.Ids            as ID
+import           Backtest.Optimize          (optimize)
+import qualified Backtest.Query             as Q
+import           Backtest.Types             (AppConfig (..), Asset, Backtest,
+                                             BacktestConfig (..), CanDb,
+                                             Constraints, DbConfig (..),
+                                             Filter (..), HasAsset,
+                                             HasBacktestConfig, Ordinal (..),
+                                             PortfolioW, Strategy (..), Ticker,
+                                             Weekday (..), asset, connection,
+                                             historyVersion, mkEquity,
+                                             mkFrequency, unBacktest, unTicker)
+import           Control.Arrow              (returnA)
+import           Control.Lens               (view)
+import           Control.Monad.Logger       (runStdoutLoggingT)
+import           Control.Monad.Reader       (runReaderT)
+import           Control.Monad.Trans        (liftIO)
+import           Data.Char                  (toLower)
+import           Data.List                  (sortBy)
+import           Data.Time                  (Day, fromGregorian)
+import qualified Database.PostgreSQL.Simple as PGS
+import qualified Opaleye                    as O
 
-alpha :: CanDb r m => Strategy m Asset
+
+data ExampleData = ED { edAsset  :: Asset
+                      , edTicker :: Ticker }
+
+instance HasAsset ExampleData where
+  asset = edAsset
+
+instance HasTicker ExampleData where
+  getTicker = Just . edTicker
+
+class HasTicker a where
+  getTicker :: a -> Maybe Ticker
+
+alpha :: CanDb r m => Strategy m ExampleData
 alpha = Strategy query $ sortBy (\_ _ -> EQ)
 
-query :: CanDb r m => Day -> m [Asset]
+exampleQuery :: ID.HistoryVersionId -> Day -> O.Query (ID.SecurityIdColumn, (O.Column O.PGText))
+exampleQuery v d = proc () -> do
+  sid <- Q.membersForDay v d -< ()
+  t <- Q.tickerOfSecurity -< (sid, O.constant v)
+  returnA -< (sid, t)
+
+runExampleQuery :: PGS.Connection -> ID.HistoryVersionId -> Day -> IO [(ID.SecurityId, Ticker)]
+runExampleQuery c v d = O.runQuery c (exampleQuery v d)
+
+query :: CanDb r m => Day -> m [ExampleData]
 query d' = do
   conn <- view connection
   v <- view historyVersion
-  ts <- liftIO $ Q.runMembersQuery conn v d'
-  return $ map mkEquity ts
+  res <- liftIO $ runExampleQuery conn v d'
+  return $ map (\(sid, t) -> ED (mkEquity sid) t) res
 
 
-constraintNoSecondB :: HasAsset a => FullConstraint a
-constraintNoSecondB x = check $ asset x
+constraintNoSecondB :: HasTicker a =>  a -> Filter
+constraintNoSecondB a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
   where
-    check a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
     hasB (_:'b':_) = Exclude
     hasB _ = Include
 
-constraintNoZ :: HasAsset a => FullConstraint a
-constraintNoZ x = check $ asset x
+constraintNoZ :: ExampleData -> Filter
+constraintNoZ a = maybe Include (hasB . map toLower . unTicker) (Just $ edTicker a)
   where
-    check a = maybe Include (hasB . map toLower . unTicker) (getTicker a)
     hasB ('z':_) = Exclude
     hasB _ = Include
 
-constraints :: (HasAsset a) => Constraints a
-constraints = mkConstraints [constraintNoSecondB][constraintNoZ][] []
+constraints :: Constraints ExampleData
+constraints = addGlobalFilter constraintNoSecondB "No Second B" $
+  addShortFilter constraintNoZ "No Z" []
 
 d :: Day
 d = fromGregorian 2016 1 26
