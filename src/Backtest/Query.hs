@@ -13,54 +13,62 @@ module Backtest.Query
        , saveConstraints
        , saveHoldings
        , membersForDay
+       , tickerOfSecurity
        , BacktestId
        ) where
 
-import           Backtest.Db.Backtest       (Backtest' (..),
-                                             BacktestCreatedAt' (..),
-                                             backtestId, backtestTable)
-import           Backtest.Db.Constraint     (Constraint' (..), constraintTable)
-import           Backtest.Db.HistoryVersion (historyVersionId,
-                                             historyVersionQuery,
-                                             historyVersionUniverse)
-import           Backtest.Db.Holding        (AssetClass (..), Holding' (..),
-                                             holdingTable, pgAssetClass)
-import           Backtest.Db.Ids            (BacktestId, BacktestId' (..),
-                                             ConstraintId' (..),
-                                             HistoryVersionId,
-                                             HistoryVersionId' (..),
-                                             HistoryVersionIdColumn,
-                                             HoldingId' (..), SecurityId,
-                                             SecurityId' (..), SecurityIdColumn,
-                                             SecurityIdColumnNullable,
-                                             pSecurityId)
-import           Backtest.Db.Member         (memberDt, memberQuery,
-                                             memberSecurityId, memberUniverse)
-import           Backtest.Db.PriceHistory   (priceHistoryDt,
-                                             priceHistoryHistoryVersion,
-                                             priceHistoryQuery,
-                                             priceHistorySecurityId,
-                                             priceHistoryTotalReturnIndex)
-import           Backtest.Types             (Asset (..), BacktestConfig,
-                                             Constraints, Ticker, buffer,
-                                             cutoff, frequency, getSecurityId,
-                                             startDate, startValue)
-import           Control.Arrow              (returnA)
-import           Control.Lens               (to, (^.), _1)
-import           Data.Int                   (Int64)
-import qualified Data.Map.Strict            as M
-import           Data.Text                  (Text, pack)
-import           Data.Time                  (Day)
-import qualified Database.PostgreSQL.Simple as PGS
-import           Opaleye                    (Column, Query, QueryArr, aggregate,
-                                             asc, constant, desc, distinct, in_,
-                                             limit, max, maybeToNullable, null,
-                                             orderBy, restrict, toNullable,
-                                             (./=), (.<=), (.==), (.>=))
-import           Opaleye.Manipulation       (runInsertMany, runInsertReturning)
-import           Opaleye.PGTypes            (PGDate, PGFloat8, PGInt4, PGText)
-import           Opaleye.RunQuery           (runQuery)
-import           Prelude                    hiding (max, null)
+import           Backtest.Db.Backtest        (Backtest' (..),
+                                              BacktestCreatedAt' (..),
+                                              backtestId, backtestTable)
+import           Backtest.Db.Constraint      (Constraint' (..), constraintTable)
+import           Backtest.Db.HistoryVersion  (historyVersionId,
+                                              historyVersionQuery,
+                                              historyVersionUniverse)
+import           Backtest.Db.Holding         (AssetClass (..), Holding' (..),
+                                              holdingTable, pgAssetClass)
+import           Backtest.Db.Ids             (BacktestId, BacktestId' (..),
+                                              ConstraintId' (..),
+                                              HistoryVersionId,
+                                              HistoryVersionId' (..),
+                                              HistoryVersionIdColumn,
+                                              HoldingId' (..), SecurityId,
+                                              SecurityId' (..),
+                                              SecurityIdColumn,
+                                              SecurityIdColumnNullable,
+                                              pSecurityId)
+import           Backtest.Db.Member          (memberDt, memberQuery,
+                                              memberSecurityId, memberUniverse)
+import           Backtest.Db.PriceHistory    (priceHistoryDt,
+                                              priceHistoryHistoryVersion,
+                                              priceHistoryQuery,
+                                              priceHistorySecurityId,
+                                              priceHistoryTotalReturnIndex)
+import           Backtest.Db.SecurityHistory (securityHistoryHistoryVersion,
+                                              securityHistoryQuery,
+                                              securityHistorySecurityId,
+                                              securityHistoryTicker)
+import           Backtest.Types              (Asset (..), BacktestConfig,
+                                              Constraints, Ticker, buffer,
+                                              cutoff, description, frequency,
+                                              getSecurityId, startDate,
+                                              startValue)
+import           Control.Arrow               (returnA)
+import           Control.Lens                (to, (^.), _1)
+import           Data.Int                    (Int64)
+import qualified Data.Map.Strict             as M
+import           Data.Text                   (Text, pack)
+import           Data.Time                   (Day)
+import qualified Database.PostgreSQL.Simple  as PGS
+import           Opaleye                     (Column, Query, QueryArr,
+                                              aggregate, asc, constant, desc,
+                                              distinct, in_, limit, max,
+                                              maybeToNullable, null, orderBy,
+                                              restrict, toNullable, (./=),
+                                              (.<=), (.==), (.>=))
+import           Opaleye.Manipulation        (runInsertMany, runInsertReturning)
+import           Opaleye.PGTypes             (PGDate, PGFloat8, PGInt4, PGText)
+import           Opaleye.RunQuery            (runQuery)
+import           Prelude                     hiding (max, null)
 
 -- |
 -- = Database Connection
@@ -157,6 +165,18 @@ membersForDay v d = proc () -> do
 
 runMembersQuery :: PGS.Connection -> HistoryVersionId -> Day -> IO [SecurityId]
 runMembersQuery conn v d = runQuery conn (membersForDay v d) :: IO [SecurityId]
+
+
+--Tickers------------------------------------------------------------------------
+
+tickerOfSecurity :: QueryArr (SecurityIdColumn, HistoryVersionIdColumn)
+                    (Column PGText)
+tickerOfSecurity = proc (sid, hv) -> do
+  sh <- securityHistoryQuery -< ()
+  restrict -< sh^.securityHistorySecurityId.to unSecurityId .== unSecurityId sid
+  restrict -< sh^.securityHistoryHistoryVersion.to unHistoryVersionId .==
+    unHistoryVersionId hv
+  returnA -< sh^.securityHistoryTicker
 
 
 --Backtest Meta------------------------------------------------------------------
