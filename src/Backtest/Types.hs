@@ -25,6 +25,7 @@ module Backtest.Types
        , connection
        , historyVersion
          -- * Optimization Parameters
+       , description
        , startDate
        , startValue
        , frequency
@@ -234,11 +235,12 @@ makeClassy ''DbConfig
 
 type Cutoff = Double
 type Buffer = Double
-data BacktestConfig = BacktestConfig { _startDate  :: Day
-                                     , _startValue :: Value
-                                     , _frequency  :: Frequency
-                                     , _cutoff     :: Cutoff
-                                     , _buffer     :: Buffer } deriving Show
+data BacktestConfig = BacktestConfig { _description :: Text
+                                     , _startDate   :: Day
+                                     , _startValue  :: Value
+                                     , _frequency   :: Frequency
+                                     , _cutoff      :: Cutoff
+                                     , _buffer      :: Buffer } deriving Show
 
 makeClassy ''BacktestConfig
 

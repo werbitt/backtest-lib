@@ -168,6 +168,7 @@ saveBacktestMeta :: PGS.Connection
 saveBacktestMeta c bc v =  head <$>
   runInsertReturning c backtestTable Backtest
   { _backtestId = BacktestId Nothing
+  , _backtestDesc = constant $ bc^.description
   , _backtestStartDt = constant $ bc^.startDate
   , _backtestStartValue = constant $ bc^.startValue
   , _backtestFrequency = constant . pack . show $ bc^.frequency

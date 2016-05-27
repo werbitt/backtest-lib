@@ -46,20 +46,22 @@ type BacktestCreatedAtColumnMaybe
 
 --Backtest-----------------------------------------------------------------------
 
-data Backtest' a b c d e f g h
+data Backtest' a b c d e f g h i
   = Backtest { _backtestId             :: a
-             , _backtestStartDt        :: b
-             , _backtestStartValue     :: c
-             , _backtestFrequency      :: d
-             , _backtestCutoff         :: e
-             , _backtestBuffer         :: f
-             , _backtestCreatedAt      :: g
-             , _backtestHistoryVersion :: h }
+             , _backtestDesc           :: b
+             , _backtestStartDt        :: c
+             , _backtestStartValue     :: d
+             , _backtestFrequency      :: e
+             , _backtestCutoff         :: f
+             , _backtestBuffer         :: g
+             , _backtestCreatedAt      :: h
+             , _backtestHistoryVersion :: i }
 
 makeLenses ''Backtest'
 makeAdaptorAndInstance "pBacktest" ''Backtest'
 
 type BacktestColumns = Backtest' BacktestIdColumn
+                                 (Column PGText)
                                  (Column PGDate)
                                  (Column PGFloat8) -- Change to numeric
                                  (Column PGText)
@@ -69,6 +71,7 @@ type BacktestColumns = Backtest' BacktestIdColumn
                                  HistoryVersionIdColumn
 
 type BacktestInsertColumns = Backtest' BacktestIdColumnMaybe
+                                       (Column PGText)
                                        (Column PGDate)
                                        (Column PGFloat8)
                                        (Column PGText)
@@ -78,6 +81,7 @@ type BacktestInsertColumns = Backtest' BacktestIdColumnMaybe
                                        HistoryVersionIdColumn
 type Backtest
   = Backtest' BacktestId
+              Text
               Day
               Double
               Text
@@ -89,6 +93,7 @@ type Backtest
 backtestTable :: Table BacktestInsertColumns BacktestColumns
 backtestTable = Table "backtest" $ pBacktest Backtest
   { _backtestId = pBacktestId . BacktestId $ optional "id"
+  , _backtestDesc = required "description"
   , _backtestStartDt = required "start_dt"
   , _backtestStartValue = required "start_value"
   , _backtestFrequency = required "frequency"

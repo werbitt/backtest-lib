@@ -62,7 +62,8 @@ run' m = do
   let config =
         AppConfig { appDbConfig = DbConfig { _connection = conn
                                            , _historyVersion = version }
-                  , appBacktestConfig = BacktestConfig { _startDate = fromGregorian 2006 1 1
+                  , appBacktestConfig = BacktestConfig { _description = "Alphabetical"
+                                                       , _startDate = fromGregorian 2014 1 1
                                                        , _startValue = 2000000
                                                        , _frequency = mkFrequency Third Friday 2
                                                        , _cutoff = 0.05
