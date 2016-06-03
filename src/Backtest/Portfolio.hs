@@ -48,7 +48,8 @@ toList :: PortfolioF a -> [(Asset, a)]
 toList (PortfolioF m) = M.toList m
 
 getSecurityId :: Asset -> Maybe SecurityId
-getSecurityId = undefined
+getSecurityId (Equity sid) = Just sid
+getSecurityId _ = Nothing
 
 getSecurityIds :: Portfolio -> [SecurityId]
 getSecurityIds = mapMaybe getSecurityId . assets
