@@ -54,8 +54,8 @@ data AssetClass = CashAsset | EquityAsset
 
 data PGAssetClass
 pgAssetClass :: AssetClass -> Column PGAssetClass
-pgAssetClass CashAsset = IPT.literalColumn . HPQ.OtherLit $ "cash"
-pgAssetClass EquityAsset = IPT.literalColumn . HPQ.OtherLit $ "equity"
+pgAssetClass CashAsset = IPT.literalColumn . HPQ.StringLit $ "cash"
+pgAssetClass EquityAsset = IPT.literalColumn . HPQ.StringLit $ "equity"
 
 instance Default Constant AssetClass (Column PGAssetClass) where
   def = Constant pgAssetClass
