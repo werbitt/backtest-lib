@@ -39,11 +39,11 @@ import           Opaleye.RunQuery                     (QueryRunnerColumnDefault)
 
 data PGConstraintHook
 pgConstraintHook :: ConstraintHook -> Column PGConstraintHook
-pgConstraintHook GlobalFilters = IPT.literalColumn . HPQ.OtherLit $ "global_filter"
-pgConstraintHook LongFilters = IPT.literalColumn . HPQ.OtherLit $ "long_filter"
-pgConstraintHook ShortFilters = IPT.literalColumn . HPQ.OtherLit $ "short_filter"
-pgConstraintHook WeightConstraints = IPT.literalColumn . HPQ.OtherLit $ "global_weight"
-pgConstraintHook ValueConstraints = IPT.literalColumn . HPQ.OtherLit $ "global_value"
+pgConstraintHook GlobalFilters = IPT.literalColumn . HPQ.StringLit $ "global_filter"
+pgConstraintHook LongFilters = IPT.literalColumn . HPQ.StringLit $ "long_filter"
+pgConstraintHook ShortFilters = IPT.literalColumn . HPQ.StringLit $ "short_filter"
+pgConstraintHook WeightConstraints = IPT.literalColumn . HPQ.StringLit $ "global_weight"
+pgConstraintHook ValueConstraints = IPT.literalColumn . HPQ.StringLit $ "global_value"
 
 instance Default Constant ConstraintHook (Column PGConstraintHook) where
   def = Constant pgConstraintHook
