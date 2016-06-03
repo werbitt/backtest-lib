@@ -13,9 +13,10 @@ module Backtest.Portfolio
 
 import           Backtest.Db.Ids     (SecurityId)
 import           Backtest.Query      (runReturnQuery)
-import           Backtest.Types      (Asset, CanDb, Portfolio, PortfolioF (..),
-                                      PortfolioW, Value, connection,
-                                      historyVersion, mkCash, mkPortfolio)
+import           Backtest.Types      (Asset (..), CanDb, Portfolio,
+                                      PortfolioF (..), PortfolioW, Value,
+                                      connection, historyVersion, mkCash,
+                                      mkPortfolio)
 import           Control.Lens        (view)
 import           Control.Monad.Trans (liftIO)
 import qualified Data.Map            as M
