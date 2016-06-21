@@ -91,7 +91,7 @@ run' m = do
         AppConfig { appDbConfig = DbConfig { _connection = conn
                                            , _historyVersion = version }
                   , appBacktestConfig = BacktestConfig { _description = "Alphabetical"
-                                                       , _startDate = fromGregorian 2014 1 1
+                                                       , _startDate = fromGregorian 2006 1 1
                                                        , _startValue = 2000000
                                                        , _frequency = mkFrequency Third Friday 2
                                                        , _cutoff = 0.05
