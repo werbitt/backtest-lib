@@ -10,11 +10,13 @@ module Strat.Skew.Db
 
 import qualified Backtest.Db.Ids            as ID
 import           Backtest.Db.PriceHistory   (priceHistoryClosePx,
-                                             priceHistoryDt, priceHistoryQuery,
+                                             priceHistoryDt,
+                                             priceHistoryHistoryVersion,
+                                             priceHistoryQuery,
                                              priceHistorySecurityId,
                                              priceHistoryVolume)
 import           Backtest.Query             (membersForDay)
-import           Backtest.Types             (Ticker, mkEquity)
+import           Backtest.Types             (mkEquity)
 import           Control.Arrow              (returnA)
 import           Control.Lens               (makeLenses, to, (^.))
 import           Control.Monad.IO.Class     (MonadIO, liftIO)
@@ -22,11 +24,10 @@ import           Data.Int                   (Int64)
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.Time                  (Day)
 import qualified Database.PostgreSQL.Simple as PGS
-import           Opaleye                    (Column, PGDate, PGFloat8, PGInt4,
-                                             PGInt8, PGText, Query, QueryArr,
-                                             Table (..), constant, queryTable,
-                                             required, restrict, runQuery,
-                                             (.==))
+import           Opaleye                    (Column, PGDate, PGFloat8, PGInt8,
+                                             Query, QueryArr, Table (..),
+                                             constant, queryTable, required,
+                                             restrict, runQuery, (.==))
 import           Strat.Skew.Types           (ImpliedVol, SkewData (..))
 
 data SkewHistory' a b c d e f = SkewHistory { _skewDt             :: a
