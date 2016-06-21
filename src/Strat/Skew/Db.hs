@@ -74,6 +74,8 @@ skewHistoryPriceVolumeJoin = proc (sh) -> do
   restrict -< sh^.skewSecurityId.to ID.unSecurityId .==
     ph^.priceHistorySecurityId.to ID.unSecurityId
   restrict -< sh^.skewDt .== ph^.priceHistoryDt
+  restrict -< sh^.skewHistoryVersion.to ID.unHistoryVersionId .==
+    ph^.priceHistoryHistoryVersion
   returnA -< (ph^.priceHistoryClosePx, ph^.priceHistoryVolume)
 
 
