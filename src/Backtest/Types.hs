@@ -32,6 +32,7 @@ module Backtest.Types
        , cutoff
        , buffer
        , Buffer
+       , Cutoff
          -- * Assets
        , Asset(..)
        , mkCash

@@ -5,13 +5,19 @@ module Backtest.Config
        (
        ) where
 
+import           Backtest.Types          (Buffer, Cutoff, Frequency,
+                                          Ordinal (..), Value, Wait,
+                                          Weekday (..), mkFrequency)
 import           Control.Lens            (makeLenses)
 import           Data.Configurator       as C
 import           Data.Configurator.Types (Config, Worth (..))
 import           Data.Function           (on)
 import           Data.List               (foldl1')
-import           Data.Maybe              (catMaybes)
+import           Data.Maybe              (catMaybes, listToMaybe)
 import           Data.Monoid             (Last (..), getLast, mappend, (<>))
+import           Data.Text               (Text)
+import           Data.Time               (Day, defaultTimeLocale, fromGregorian,
+                                          parseTimeM)
 import           System.FilePath         ((</>))
 
 --------------------------------------------------------------------------------
@@ -39,9 +45,6 @@ data DbConfig = DbConfig { _dbConfigHost     :: Maybe String
                          , _dbConfigUser     :: Maybe String
                          , _dbConfigPassword :: Maybe String
                          , _dbConfigDatabase :: Maybe String }
-
-makeLenses ''DbConfig
-
 
 --------------------------------------------------------------------------------
 -- | Monoid instance for DbConfig. If there is a value on the RHS it will
@@ -110,7 +113,7 @@ defaultBacktestConfig
   = BacktestConfig { _bcDescription = Just "Backtest"
                    , _bcStartDate   = Just $ fromGregorian 2016 1 1
                    , _bcStartValue  = Just 1000000
-                   , _bcFrequency   = Just $ Monthly Third Friday (Wait 2)
+                   , _bcFrequency   = Just $ mkFrequency Third Friday 2
                    , _bcCutoff      = Just 0.5
                    , _bcBuffer      = Just 0
                    }
@@ -120,5 +123,22 @@ defaultBacktestConfig
 getBacktestConfig :: Config -> IO BacktestConfig
 getBacktestConfig cfg = do
   desc <- C.lookup cfg "backtest.description"
-  sd <- C.lookup cfg "backtest.start-date"
+  sd <- do
+    sd' <- C.lookup cfg "backtest.start-date"
+    return $ sd' >>= parseDay
   sv <- C.lookup cfg "backtest.start-value"
+  freq <- C.lookup cfg "backtest.frequency"
+  cut <- C.lookup cfg "backtest.cutoff"
+  buf <- C.lookup cfg "backtest.buffer"
+  return $ BacktestConfig desc sd sv freq cut buf
+
+parseDay :: String -> Maybe Day
+parseDay s = firstJust tryParsers
+  where
+    firstJust = listToMaybe . catMaybes
+    formats = [ "%Y-%m-%d"
+              , "%m/%d/%y"
+              , "%m/%d/%Y"
+              ]
+    parseWith fmt = parseTimeM True defaultTimeLocale fmt s
+    tryParsers = parseWith <$> formats
