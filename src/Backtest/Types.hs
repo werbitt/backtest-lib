@@ -83,6 +83,7 @@ import           Control.Monad.Reader            (MonadReader, ReaderT)
 import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as M
 import           Data.Profunctor.Product.Default (Default, def)
+import           Data.String                     (IsString (..))
 import           Data.Text                       (Text)
 import           Data.Time                       (Day)
 import           Database.PostgreSQL.Simple      (Connection)
@@ -100,6 +101,13 @@ data Ordinal = First
              | Third
              | Fourth deriving (Show)
 
+instance IsString Ordinal where
+  fromString "First"  = First
+  fromString "Second" = Second
+  fromString "Third"  = Third
+  fromString "Fourth" = Fourth
+  fromString e        = error ("fromString: " ++ e ++ " is not a valid Ordinal")
+
 type Wait = Int
 
 
@@ -116,6 +124,16 @@ data Weekday = Monday
              | Friday
              | Saturday
              | Sunday deriving (Show)
+
+instance IsString Weekday where
+  fromString "Monday"    = Monday
+  fromString "TuesDay"   = Tuesday
+  fromString "Wednesday" = Wednesday
+  fromString "Thursday"  = Thursday
+  fromString "Friday"    = Friday
+  fromString "Saturday"  = Saturday
+  fromString "Sunday"    = Sunday
+  fromString e           = error ("fromString: " ++ e ++ " is not a valid weekday")
 
 weekdayToInt :: Num a => Weekday -> a
 weekdayToInt Monday    = 1

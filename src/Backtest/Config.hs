@@ -15,6 +15,7 @@ import           Data.Function           (on)
 import           Data.List               (foldl1')
 import           Data.Maybe              (catMaybes, listToMaybe)
 import           Data.Monoid             (Last (..), getLast, mappend, (<>))
+import           Data.String             (fromString)
 import           Data.Text               (Text)
 import           Data.Time               (Day, defaultTimeLocale, fromGregorian,
                                           parseTimeM)
@@ -127,7 +128,15 @@ getBacktestConfig cfg = do
     sd' <- C.lookup cfg "backtest.start-date"
     return $ sd' >>= parseDay
   sv <- C.lookup cfg "backtest.start-value"
-  freq <- C.lookup cfg "backtest.frequency"
+
+  o <- C.lookup cfg "backtest.frequency.ordinal"
+  wd <- C.lookup cfg "backtest.frequency.weekday"
+  wt <- C.lookup cfg "backtest.frequency.wait"
+  let freq = case (o, wd, wt) of
+        (Just o', Just wd', Just wt') -> Just $ parseFrequency o' wd' wt'
+        _ -> Nothing
+
+
   cut <- C.lookup cfg "backtest.cutoff"
   buf <- C.lookup cfg "backtest.buffer"
   return $ BacktestConfig desc sd sv freq cut buf
@@ -142,3 +151,12 @@ parseDay s = firstJust tryParsers
               ]
     parseWith fmt = parseTimeM True defaultTimeLocale fmt s
     tryParsers = parseWith <$> formats
+
+parseFrequency :: String
+               -- ^ Ordinal
+               -> String
+               -- ^ Weekday
+               -> Int
+               -- ^ Wait
+               -> Frequency
+parseFrequency o wd wt = mkFrequency (fromString o) (fromString wd) wt
