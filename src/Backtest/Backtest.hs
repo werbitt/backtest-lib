@@ -15,7 +15,7 @@ import           Backtest.Query         (BacktestId, saveBacktestMeta,
                                          saveConstraints, saveHoldings)
 import           Backtest.Types         (CanDb, Constraints, HasAsset,
                                          HasBacktestConfig, Portfolio, Strategy,
-                                         backtestConfig, connection, frequency,
+                                         backtestConfig, conn, frequency,
                                          historyVersion, startValue, startValue)
 import           Control.Lens           (view)
 import           Control.Monad          (forever)
@@ -88,14 +88,14 @@ applyReturns = getAndApplyReturns
 
 saveBacktestMeta' :: ( CanDb r m, HasBacktestConfig r ) => m BacktestId
 saveBacktestMeta' = do
-  c <- view connection
+  c <- view conn
   v <- view historyVersion
   bc <- view backtestConfig
   liftIO $ saveBacktestMeta c bc v
 
 saveConstraints' :: ( CanDb r m ) => BacktestId -> Constraints a -> m ()
 saveConstraints' bId cts = do
-  c <- view connection
+  c <- view conn
   _ <- liftIO $ saveConstraints c bId cts
   return ()
 
@@ -107,6 +107,6 @@ save bId  = forever $ do
 
 saveHoldings' :: CanDb r m => BacktestId -> Day -> Portfolio ->  m ()
 saveHoldings' bId d p = do
-  c <- view connection
+  c <- view conn
   _ <- liftIO $ saveHoldings c bId d (toList p)
   return ()

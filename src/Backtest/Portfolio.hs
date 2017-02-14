@@ -14,9 +14,8 @@ module Backtest.Portfolio
 import           Backtest.Db.Ids     (SecurityId)
 import           Backtest.Query      (runReturnQuery)
 import           Backtest.Types      (Asset (..), CanDb, Portfolio,
-                                      PortfolioF (..), PortfolioW, Value,
-                                      connection, historyVersion, mkCash,
-                                      mkPortfolio)
+                                      PortfolioF (..), PortfolioW, Value, conn,
+                                      historyVersion, mkCash, mkPortfolio)
 import           Control.Lens        (view)
 import           Control.Monad.Trans (liftIO)
 import qualified Data.Map            as M
@@ -56,7 +55,7 @@ getSecurityIds = mapMaybe getSecurityId . assets
 
 getReturns :: CanDb r m => Day -> Day -> Portfolio -> m (M.Map SecurityId Double)
 getReturns sd ed p = do
-  c <- view connection
+  c <- view conn
   v <- view historyVersion
   let ids = getSecurityIds p
   liftIO $ runReturnQuery c v sd ed ids
