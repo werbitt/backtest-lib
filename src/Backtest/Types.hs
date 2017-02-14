@@ -12,18 +12,23 @@
 
 module Backtest.Types
        ( Backtest
+       , CanBacktest
        , unBacktest
+       -- * App Config
        , AppConfig (..)
        , BacktestConfig (..)
        , backtestConfig
        , HasBacktestConfig
        , DbConfig (..)
        , dbConfig
+       , dbConnectInfo
        , HasDbConfig
-       , CanDb
-         -- * Reader Environment
-       , connection
+        -- * App Env
+       , Env (..)
+       , DbEnv (..)
+       , conn
        , historyVersion
+       , CanDb
          -- * Optimization Parameters
        , description
        , startDate
@@ -86,7 +91,7 @@ import           Data.Profunctor.Product.Default (Default, def)
 import           Data.String                     (IsString (..))
 import           Data.Text                       (Text)
 import           Data.Time                       (Day)
-import           Database.PostgreSQL.Simple      (Connection)
+import           Database.PostgreSQL.Simple      (ConnectInfo, Connection)
 import           Opaleye.Column                  (Column)
 import           Opaleye.Constant                (Constant (..))
 import           Opaleye.PGTypes                 (PGText, pgStrictText,
@@ -244,14 +249,22 @@ type Constraints a = [(ConstraintHook, Constraint a, Text)]
 
 
 ------------------------------------------------------------------------
--- | Config
+-- | Environment
 ------------------------------------------------------------------------
 
-data DbConfig = DbConfig { _connection     :: Connection
-                         , _historyVersion :: HistoryVersionId }
+
+-- | Database
+------------------------------------------------------------------------
+data DbConfig = DbConfig { _dbConnectInfo :: ConnectInfo }
 makeClassy ''DbConfig
 
+data DbEnv = DbEnv { _conn           :: Connection
+                   , _historyVersion :: HistoryVersionId }
+makeClassy ''DbEnv
 
+
+-- | Backtest Settings
+------------------------------------------------------------------------
 type Cutoff = Double
 type Buffer = Double
 data BacktestConfig = BacktestConfig { _description :: Text
@@ -263,26 +276,54 @@ data BacktestConfig = BacktestConfig { _description :: Text
 
 makeClassy ''BacktestConfig
 
-data AppConfig  = AppConfig { appDbConfig       :: DbConfig
-                            , appBacktestConfig :: BacktestConfig }
+-- | App Config
+data AppConfig = AppConfig { _acBacktestConfig :: BacktestConfig
+                           , _acDbConfig       :: DbConfig }
+
 makeClassy ''AppConfig
 
 instance HasDbConfig AppConfig where
-  dbConfig = lens appDbConfig (\app db -> app { appDbConfig = db })
+  dbConfig = acDbConfig
 
 instance HasBacktestConfig AppConfig where
-  backtestConfig = lens appBacktestConfig (\a b -> a { appBacktestConfig = b })
+  backtestConfig = acBacktestConfig
 
-type CanDb r m = ( MonadReader r m, HasDbConfig r, MonadIO m )
+
+-- | App Environment
+------------------------------------------------------------------------
+data Env = Env { _envConfig :: AppConfig
+               , _envDb     :: DbEnv }
+
+makeLenses ''Env
+
+instance HasDbConfig Env where
+  dbConfig = envConfig . acDbConfig
+
+instance HasBacktestConfig Env where
+  backtestConfig = envConfig . acBacktestConfig
+
+
+instance HasDbEnv Env where
+  dbEnv = envDb
+
+type CanDb r m = ( MonadReader r m, HasDbEnv r, MonadIO m )
 
 ------------------------------------------------------------------------
 -- | Application Monad Stack
 ------------------------------------------------------------------------
-newtype Backtest a = Backtest { unBacktest :: ReaderT AppConfig (LoggingT IO) a } deriving
+
+type CanBacktest r s m = ( MonadState s m
+                         , MonadReader r m
+                         , MonadIO m
+                         , HasDbEnv s
+                         , HasBacktestConfig r)
+
+newtype Backtest a
+  = Backtest { unBacktest :: ReaderT Env (LoggingT IO) a } deriving
                      (
                        Functor
                      , Applicative
                      , Monad
-                     , MonadReader AppConfig
+                     , MonadReader Env
                      , MonadIO
                      )
