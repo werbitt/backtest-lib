@@ -12,7 +12,6 @@
 
 module Backtest.Types
        ( Backtest
-       , CanBacktest
        , unBacktest
        -- * App Config
        , AppConfig (..)
@@ -311,12 +310,6 @@ type CanDb r m = ( MonadReader r m, HasDbEnv r, MonadIO m )
 ------------------------------------------------------------------------
 -- | Application Monad Stack
 ------------------------------------------------------------------------
-
-type CanBacktest r s m = ( MonadState s m
-                         , MonadReader r m
-                         , MonadIO m
-                         , HasDbEnv s
-                         , HasBacktestConfig r)
 
 newtype Backtest a
   = Backtest { unBacktest :: ReaderT Env (LoggingT IO) a } deriving
