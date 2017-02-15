@@ -5,7 +5,6 @@
 
 module Backtest.Query
        ( lastHistoryVersion
-       , connection
        , tradingDays
        , runMembersQuery
        , runReturnQuery
@@ -25,7 +24,7 @@ import           Backtest.Db.HistoryVersion  (historyVersionId,
                                               historyVersionQuery,
                                               historyVersionUniverse)
 import           Backtest.Db.Holding         (AssetClass (..), Holding' (..),
-                                              holdingTable, pgAssetClass)
+                                              holdingTable)
 import           Backtest.Db.Ids             (BacktestId, BacktestId' (..),
                                               ConstraintId' (..),
                                               HistoryVersionId,
@@ -33,9 +32,7 @@ import           Backtest.Db.Ids             (BacktestId, BacktestId' (..),
                                               HistoryVersionIdColumn,
                                               HoldingId' (..), SecurityId,
                                               SecurityId' (..),
-                                              SecurityIdColumn,
-                                              SecurityIdColumnNullable,
-                                              pSecurityId)
+                                              SecurityIdColumn)
 import           Backtest.Db.Member          (memberDt, memberQuery,
                                               memberSecurityId, memberUniverse)
 import           Backtest.Db.PriceHistory    (priceHistoryDt,
@@ -47,24 +44,26 @@ import           Backtest.Db.SecurityHistory (securityHistoryHistoryVersion,
                                               securityHistoryQuery,
                                               securityHistorySecurityId,
                                               securityHistoryTicker)
-import           Backtest.Types              (Asset (..), BacktestConfig,
-                                              Constraints, Ticker, buffer,
+import           Backtest.Types              (Asset (..), CanDb, Constraints,
+                                              HasBacktestConfig, Ticker,
+                                              backtestConfig, buffer, conn,
                                               cutoff, description, frequency,
-                                              getSecurityId, startDate,
-                                              startValue)
+                                              getSecurityId, historyVersion,
+                                              startDate, startValue)
 import           Control.Arrow               (returnA)
-import           Control.Lens                (to, (^.), _1)
+import           Control.Lens                (to, view, (^.), _1)
+import           Control.Monad.IO.Class      (liftIO)
 import           Data.Int                    (Int64)
 import qualified Data.Map.Strict             as M
-import           Data.Text                   (Text, pack)
+import           Data.Text                   (pack)
 import           Data.Time                   (Day)
 import qualified Database.PostgreSQL.Simple  as PGS
 import           Opaleye                     (Column, Query, QueryArr,
                                               aggregate, asc, constant, desc,
                                               distinct, in_, limit, max,
-                                              maybeToNullable, null, orderBy,
-                                              restrict, toNullable, (./=),
-                                              (.<=), (.==), (.>=))
+                                              maybeToNullable, orderBy,
+                                              restrict, (./=), (.<=), (.==),
+                                              (.>=))
 import           Opaleye.Manipulation        (runInsertMany, runInsertReturning)
 import           Opaleye.PGTypes             (PGDate, PGFloat8, PGInt4, PGText)
 import           Opaleye.RunQuery            (runQuery)
@@ -72,16 +71,6 @@ import           Prelude                     hiding (max, null)
 
 -- |
 -- = Database Connection
-
-connectInfo :: PGS.ConnectInfo
-connectInfo = PGS.ConnectInfo { PGS.connectHost = "localhost"
-                              , PGS.connectPort = 5432
-                              , PGS.connectUser = "backtest"
-                              , PGS.connectPassword = ""
-                              , PGS.connectDatabase = "backtest" }
-
-connection :: IO PGS.Connection
-connection = PGS.connect connectInfo
 
 restrictHistoryVersion :: HistoryVersionId -> QueryArr (Column PGInt4) ()
 restrictHistoryVersion v = proc v' ->
@@ -105,8 +94,8 @@ lastHistoryVersionQuery =  HistoryVersionId <$>
 
 
 lastHistoryVersion :: PGS.Connection -> IO HistoryVersionId
-lastHistoryVersion conn = do
-   result <- runQuery conn lastHistoryVersionQuery :: IO [HistoryVersionId]
+lastHistoryVersion c = do
+   result <- runQuery c lastHistoryVersionQuery :: IO [HistoryVersionId]
    return $ head result
 
 
@@ -132,12 +121,15 @@ returnQuery v sd ed sid = proc () -> do
   restrict -< unSecurityId sid' .== unSecurityId sid''
   returnA -< (sid', startPrice, endPrice)
 
-runReturnQuery :: PGS.Connection -> HistoryVersionId -> Day -> Day -> [SecurityId]
-               -> IO (M.Map SecurityId Double)
-runReturnQuery conn v sd ed sids = do
-  let q sid = runQuery conn (returnQuery v sd ed sid) :: IO [(SecurityId, Double, Double)]
-  res <- concat <$>  mapM q sids
+runReturnQuery :: CanDb s m =>
+                  Day -> Day -> [SecurityId] -> m (M.Map SecurityId Double)
+runReturnQuery sd ed sids = do
+  c <- view conn
+  v <- view historyVersion
+  let q sid = runQuery c (returnQuery v sd ed sid) :: IO [(SecurityId, Double, Double)]
+  res <- concat <$> liftIO (mapM q sids)
   return $ M.fromList (map (\(sid, sp, ep) -> (sid, (ep / sp) - 1)) res)
+
 
 
 --Trading Days-------------------------------------------------------------------
@@ -149,8 +141,11 @@ tradingDaysQuery v sd = orderBy (asc id) $ distinct $ proc () -> do
   restrict -< ph^.priceHistoryDt .>= constant sd
   returnA -< ph^.priceHistoryDt
 
-tradingDays :: PGS.Connection -> HistoryVersionId -> Day  -> IO [Day]
-tradingDays conn v d = runQuery conn (tradingDaysQuery v d) :: IO [Day]
+tradingDays :: CanDb r m => Day -> m [Day]
+tradingDays d = do
+  c <- view conn
+  v <- view historyVersion
+  liftIO $ runQuery c (tradingDaysQuery v d)
 
 
 --MembersForDay------------------------------------------------------------------
@@ -163,8 +158,11 @@ membersForDay v d = proc () -> do
   restrictDay d -< m^.memberDt
   returnA -< m^.memberSecurityId
 
-runMembersQuery :: PGS.Connection -> HistoryVersionId -> Day -> IO [SecurityId]
-runMembersQuery conn v d = runQuery conn (membersForDay v d) :: IO [SecurityId]
+runMembersQuery :: CanDb r m =>  Day -> m [SecurityId]
+runMembersQuery d = do
+  c <- view conn
+  v <- view historyVersion
+  liftIO $ runQuery c (membersForDay v d)
 
 
 --Tickers------------------------------------------------------------------------
@@ -181,29 +179,31 @@ tickerOfSecurity = proc (sid, hv) -> do
 
 --Backtest Meta------------------------------------------------------------------
 
-saveBacktestMeta :: PGS.Connection
-                 -> BacktestConfig
-                 -> HistoryVersionId
-                 -> IO BacktestId
-saveBacktestMeta c bc v =  head <$>
-  runInsertReturning c backtestTable Backtest
-  { _backtestId = BacktestId Nothing
-  , _backtestDesc = constant $ bc^.description
-  , _backtestStartDt = constant $ bc^.startDate
-  , _backtestStartValue = constant $ bc^.startValue
-  , _backtestFrequency = constant . pack . show $ bc^.frequency
-  , _backtestCutoff = constant $ bc^.cutoff
-  , _backtestBuffer = constant $ bc^.buffer
-  , _backtestCreatedAt = BacktestCreatedAt Nothing
-  , _backtestHistoryVersion = constant v
-  } (^.backtestId)
+saveBacktestMeta :: (CanDb r m, HasBacktestConfig r) => m BacktestId
+saveBacktestMeta = do
+  c <- view conn
+  v <- view historyVersion
+  bc <- view backtestConfig
+  liftIO $ head <$>
+    runInsertReturning c backtestTable Backtest
+    { _backtestId = BacktestId Nothing
+    , _backtestDesc = constant $ bc^.description
+    , _backtestStartDt = constant $ bc^.startDate
+    , _backtestStartValue = constant $ bc^.startValue
+    , _backtestFrequency = constant . pack . show $ bc^.frequency
+    , _backtestCutoff = constant $ bc^.cutoff
+    , _backtestBuffer = constant $ bc^.buffer
+    , _backtestCreatedAt = BacktestCreatedAt Nothing
+    , _backtestHistoryVersion = constant v
+    } (^.backtestId)
 
 
 --Constraints--------------------------------------------------------------------
 
-saveConstraints :: PGS.Connection -> BacktestId -> Constraints a -> IO Int64
-saveConstraints c bId cts
-  = runInsertMany c constraintTable constraints
+saveConstraints :: CanDb r m => BacktestId -> Constraints a -> m Int64
+saveConstraints  bId cts  = do
+  c <- view conn
+  liftIO $ runInsertMany c constraintTable constraints
   where
     constraints = flip map cts $ \(h, _, d) ->
       Constraint { _constraintId = ConstraintId Nothing
@@ -214,12 +214,10 @@ saveConstraints c bId cts
 
 --Holdings-----------------------------------------------------------------------
 
-saveHoldings :: PGS.Connection
-             -> BacktestId
-             -> Day
-             -> [(Asset, Double)]
-             -> IO Int64
-saveHoldings c bId d hs = runInsertMany c holdingTable holdings
+saveHoldings :: CanDb r m => BacktestId -> Day -> [(Asset, Double)] -> m Int64
+saveHoldings bId d hs = do
+  c <- view conn
+  liftIO $ runInsertMany c holdingTable holdings
   where
     assetClass Cash = CashAsset
     assetClass (Equity _) = EquityAsset

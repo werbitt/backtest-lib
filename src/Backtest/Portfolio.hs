@@ -54,11 +54,7 @@ getSecurityIds :: Portfolio -> [SecurityId]
 getSecurityIds = mapMaybe getSecurityId . assets
 
 getReturns :: CanDb r m => Day -> Day -> Portfolio -> m (M.Map SecurityId Double)
-getReturns sd ed p = do
-  c <- view conn
-  v <- view historyVersion
-  let ids = getSecurityIds p
-  liftIO $ runReturnQuery c v sd ed ids
+getReturns sd ed p = runReturnQuery sd ed (getSecurityIds p)
 
 applyReturns :: M.Map SecurityId Double -> Portfolio -> Portfolio
 applyReturns returns = mapWithAsset applyReturn
