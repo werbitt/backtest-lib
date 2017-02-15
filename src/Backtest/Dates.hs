@@ -8,27 +8,26 @@ module Backtest.Dates
        ) where
 
 import qualified Backtest.Query              as Q
-import           Backtest.Types              (Frequency, HasBacktestConfig,
-                                              HasDbConfig, Ordinal, Weekday,
-                                              connection, historyVersion,
+import           Backtest.Types              (CanDb, Frequency,
+                                              HasBacktestConfig, Ordinal,
+                                              Weekday, conn, historyVersion,
                                               ordToInt, ordinal, startDate,
                                               wait, weekday, weekdayToInt)
 import           Control.Lens                (view, (^.))
-import           Control.Monad.IO.Class      (MonadIO, liftIO)
-import           Control.Monad.Reader        (MonadReader)
+import           Control.Monad.IO.Class      (liftIO)
 import           Data.List                   (groupBy)
 import           Data.Maybe                  (listToMaybe, mapMaybe)
 import           Data.Set                    (Set, fromList)
 import           Data.Time                   (Day, fromGregorian, toGregorian)
 import           Data.Time.Calendar.WeekDate (toWeekDate)
 
-tradingDays :: (MonadIO m, MonadReader r m, HasBacktestConfig r, HasDbConfig r)
+tradingDays :: (CanDb r m, HasBacktestConfig r)
                => m [Day]
 tradingDays = do
-  conn <- view connection
-  v    <- view historyVersion
-  sd   <- view startDate
-  liftIO $ Q.tradingDays conn v sd
+  c  <- view conn
+  v  <- view historyVersion
+  sd <- view startDate
+  liftIO $ Q.tradingDays c v sd
 
 rebalanceDays :: Frequency -> [Day] -> Set Day
 rebalanceDays f ds = fromList $ mapMaybe getDay (groupBy sameMonth ds)
