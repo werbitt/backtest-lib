@@ -3,7 +3,7 @@
 
 module Backtest.Backtest
        (
-         run
+         backtest
        ) where
 
 import           Backtest.Dates      (rebalanceDays, tradingDays)
@@ -12,7 +12,7 @@ import           Backtest.Portfolio  (empty, flow, fromWeighted,
                                       getAndApplyReturns, marketValue, toList)
 import           Backtest.Query      (BacktestId, saveBacktestMeta,
                                       saveConstraints, saveHoldings)
-import           Backtest.Types      (CanDb, Constraints, HasAsset,
+import           Backtest.Types      (Backtest, CanDb, Constraints, HasAsset,
                                       HasBacktestConfig, Portfolio, Strategy,
                                       frequency, startValue, startValue)
 import           Control.Lens        (view)
@@ -24,10 +24,16 @@ import           Pipes               (Consumer, Producer, await, runEffect,
                                       yield, (>->))
 
 
-run
-  :: (CanDb r m, HasAsset a, HasBacktestConfig r) =>
-     Strategy m a -> Constraints a -> m ()
-run strat cts  = do
+-- | `backtest` takes a strategy and constraints and returns a Backtest.
+-- In this case a backtest is basically a Portfolio over a series of days.
+--
+-- The backtest configuration is kept in the reader portion of the Backtest.
+-- I wonder if it should be made explicit.
+
+backtest
+  :: (CanDb r Backtest, HasAsset a, HasBacktestConfig r) =>
+     Strategy Backtest a -> Constraints a -> Backtest ()
+backtest strat cts  = do
   bId <- saveBacktestMeta
   void (saveConstraints bId cts)
   runEffect $ start strat cts >-> save bId
