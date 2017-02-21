@@ -11,17 +11,14 @@ module Backtest.Portfolio
        , toList
        ) where
 
-import           Backtest.Db.Ids     (SecurityId)
-import           Backtest.Query      (runReturnQuery)
-import           Backtest.Types      (Asset (..), CanDb, Portfolio,
-                                      PortfolioF (..), PortfolioW, Value, conn,
-                                      historyVersion, mkCash, mkPortfolio)
-import           Control.Lens        (view)
-import           Control.Monad.Trans (liftIO)
-import qualified Data.Map            as M
-import           Data.Maybe          (fromMaybe, mapMaybe)
-import           Data.Monoid         (Sum (..), getSum, (<>))
-import           Data.Time           (Day)
+import           Backtest.Db.Ids (SecurityId)
+import           Backtest.Query  (runReturnQuery)
+import           Backtest.Types  (Asset (..), CanDb, Portfolio, PortfolioF (..),
+                                  PortfolioW, Value, mkCash, mkPortfolio)
+import qualified Data.Map        as M
+import           Data.Maybe      (fromMaybe, mapMaybe)
+import           Data.Monoid     (Sum (..), getSum, (<>))
+import           Data.Time       (Day)
 
 fromWeighted :: PortfolioW -> Value -> Portfolio
 fromWeighted p mv = toValue <$> p
