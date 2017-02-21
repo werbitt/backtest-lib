@@ -1,14 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Backtest.Config
        (
        ) where
 
 import           Backtest.Types          (Buffer, Cutoff, Frequency,
-                                          Ordinal (..), Value, Wait,
-                                          Weekday (..), mkFrequency)
-import           Control.Lens            (makeLenses)
+                                          Ordinal (..), Value, Weekday (..),
+                                          mkFrequency)
+
 import           Data.Configurator       as C
 import           Data.Configurator.Types (Config, Worth (..))
 import           Data.Function           (on)
@@ -21,11 +20,6 @@ import           Data.Time               (Day, defaultTimeLocale, fromGregorian,
                                           parseTimeM)
 import           System.FilePath         ((</>))
 
---------------------------------------------------------------------------------
--- | Data structure for holding all backtest configuration
-
-data AppConfig = AppConfig { _AppDbConfig       :: DbConfig
-                           , _AppBacktestConfig :: BacktestConfig }
 
 --------------------------------------------------------------------------------
 -- | Load configuration from a file using
