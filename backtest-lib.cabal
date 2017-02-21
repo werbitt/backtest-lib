@@ -16,7 +16,22 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
                      , Backtest.Types
+                     , Backtest.Query
+                     , Backtest.Backtest
+                     , Backtest.Constraint
+                     , Backtest.Dates
+                     , Backtest.Optimize
+                     , Backtest.Portfolio
                      , Backtest.Example
+                     , Backtest.Db.Backtest
+                     , Backtest.Db.Constraint
+                     , Backtest.Db.HistoryVersion
+                     , Backtest.Db.Holding
+                     , Backtest.Db.Ids
+                     , Backtest.Db.Member
+                     , Backtest.Db.PriceHistory
+                     , Backtest.Db.SecurityHistory
+                     , Backtest.Optimize.Weight
   build-depends:       base >= 4.7 && < 5
                      , configurator
                      , containers >= 0.5.6.2
