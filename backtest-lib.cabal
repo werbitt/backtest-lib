@@ -3,26 +3,20 @@ version:             0.1.0.0
 synopsis:            Library for running backtests
 description:         Please see README.md
 homepage:            https://bitbucket.org/werbitt/backtest-lib#readme
-license:             None
+license:             AllRightsReserved
 author:              Micah Werbitt
 maintainer:          micah@werbitt.net
 copyright:           2016 Micah Werbitt
 category:            finance
 build-type:          Simple
--- extra-source-files:
 cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
-                     , Backtest.Types
-                     , Backtest.Query
-                     , Backtest.Backtest
+  exposed-modules:     Backtest.Backtest
+                     , Backtest.Config
                      , Backtest.Constraint
                      , Backtest.Dates
-                     , Backtest.Optimize
-                     , Backtest.Portfolio
-                     , Backtest.Example
                      , Backtest.Db.Backtest
                      , Backtest.Db.Constraint
                      , Backtest.Db.HistoryVersion
@@ -31,7 +25,12 @@ library
                      , Backtest.Db.Member
                      , Backtest.Db.PriceHistory
                      , Backtest.Db.SecurityHistory
+                     , Backtest.Query
+                     , Backtest.Optimize
                      , Backtest.Optimize.Weight
+                     , Backtest.Portfolio
+                     , Backtest.Runner
+                    ,  Backtest.Types
   build-depends:       base >= 4.7 && < 5
                      , configurator
                      , containers >= 0.5.6.2
@@ -40,9 +39,11 @@ library
                      , monad-logger
                      , mtl >= 2.2.1
                      , opaleye
+                     , optparse-applicative >= 0.12.0.0
                      , pipes
                      , postgresql-simple
                      , product-profunctors >= 0.6.3.1
+                     , semigroups >= 0.18.0.1
                      , text >= 1.2.2.0
                      , time >= 1.5.0.1
                      , transformers >= 0.4.2.0
